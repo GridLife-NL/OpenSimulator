@@ -44,7 +44,7 @@ using Mono.Addins;
 namespace OpenSim.Region.CoreModules.Framework.Monitoring
 {
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "MonitorModule")]
-    public class MonitorModule : INonSharedRegionModule 
+    public class MonitorModule : INonSharedRegionModule
     {
         /// <summary>
         /// Is this module enabled?
@@ -78,7 +78,7 @@ namespace OpenSim.Region.CoreModules.Framework.Monitoring
 
             if (cnfg != null)
                 Enabled = cnfg.GetBoolean("Enabled", true);
-            
+
             if (!Enabled)
                 return;
 
@@ -205,7 +205,7 @@ namespace OpenSim.Region.CoreModules.Framework.Monitoring
                     m_scene,
                     "ScriptEventsPerSecondMonitor",
                     "Script Events",
-                    m => m.Scene.StatsReporter.LastReportedSimStats[20],
+                    m => m.Scene.StatsReporter.LastReportedSimStats[23],
                     m => string.Format("{0} per second", m.GetValue())));
 
             m_staticMonitors.Add(
@@ -301,7 +301,7 @@ namespace OpenSim.Region.CoreModules.Framework.Monitoring
                     m_scene,
                     "SpareFrameTimeMonitor",
                     "Spare Frame Time",
-                    m => m.Scene.StatsReporter.LastReportedSimStats[21],
+                    m => m.Scene.StatsReporter.LastReportedSimStats[38],
                     m => string.Format("{0} ms", m.GetValue())));
 
             m_alerts.Add(new DeadlockAlert(m_staticMonitors.Find(x => x is LastFrameTimeMonitor) as LastFrameTimeMonitor));
@@ -433,7 +433,7 @@ namespace OpenSim.Region.CoreModules.Framework.Monitoring
             MakeStat("ScriptLines", "lines/sec", (s) => { s.Value = m_scene.StatsReporter.LastReportedSimStats[20]; });
             MakeStat("SimSpareMS", "ms/sec", (s) => { s.Value = m_scene.StatsReporter.LastReportedSimStats[21]; });
         }
-        
+
         private void UnRegisterStatsManagerRegionStatistics()
         {
             foreach (Stat stat in registeredStats)
@@ -443,6 +443,6 @@ namespace OpenSim.Region.CoreModules.Framework.Monitoring
             }
             registeredStats.Clear();
         }
-        
+
     }
 }

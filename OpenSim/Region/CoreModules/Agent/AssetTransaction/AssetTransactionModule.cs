@@ -43,7 +43,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
             IAgentAssetTransactions
     {
 //        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        
+
         protected Scene m_Scene;
         private bool m_dumpAssetsToFile = false;
         private int  m_levelUpload = 0;
@@ -53,7 +53,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
         /// </summary>
         private Dictionary<UUID, AgentAssetTransactions> AgentTransactions =
             new Dictionary<UUID, AgentAssetTransactions>();
-        
+
         #region Region Module interface
 
         public void Initialise(IConfigSource source)
@@ -158,7 +158,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
         /// <param name="type"></param>
         /// <param name="wearableType"></param>
         /// <param name="nextOwnerMask"></param>
-        public void HandleItemCreationFromTransaction(IClientAPI remoteClient,
+        public bool HandleItemCreationFromTransaction(IClientAPI remoteClient,
                 UUID transactionID, UUID folderID, uint callbackID,
                 string description, string name, sbyte invType,
                 sbyte type, byte wearableType, uint nextOwnerMask)
@@ -169,7 +169,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
             AgentAssetTransactions transactions =
                     GetUserTransactions(remoteClient.AgentId);
 
-            transactions.RequestCreateInventoryItem(remoteClient, transactionID,
+            return transactions.RequestCreateInventoryItem(remoteClient, transactionID,
                     folderID, callbackID, description, name, invType, type,
                     wearableType, nextOwnerMask);
         }
@@ -241,7 +241,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
 //            m_log.DebugFormat(
 //                "[ASSET TRANSACTION MODULE]: HandleUDPUploadRequest - assetID: {0}, transaction {1}, type {2}, storeLocal {3}, tempFile {4}, data.Length {5}",
 //                assetID, transactionID, type, storeLocal, tempFile, data.Length);
-            
+
             if (((AssetType)type == AssetType.Texture ||
                 (AssetType)type == AssetType.Sound ||
                 (AssetType)type == AssetType.TextureTGA ||
@@ -255,7 +255,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
                 // check user level
                 if (avatar != null)
                 {
-                    if (avatar.UserLevel < m_levelUpload)
+                    if (avatar.GodController.UserLevel < m_levelUpload)
                     {
                         remoteClient.SendAgentAlertMessage("Unable to upload asset. Insufficient permissions.", false);
                         return;

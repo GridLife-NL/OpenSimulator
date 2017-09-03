@@ -238,8 +238,8 @@ namespace OpenSim.Framework
                 SculptTexture = prim.Sculpt.SculptTexture;
                 SculptType = (byte)prim.Sculpt.Type;
             }
-            else 
-            {  
+            else
+            {
                 SculptType = (byte)OpenMetaverse.SculptType.None;
             }
         }
@@ -324,6 +324,70 @@ namespace OpenSim.Framework
 
             shape._pathScaleX = 100;
             shape._pathScaleY = 100;
+
+            return shape;
+        }
+
+        public static PrimitiveBaseShape CreateMesh(int numberOfFaces, UUID meshAssetID)
+        {
+            PrimitiveBaseShape shape = new PrimitiveBaseShape();
+
+            shape._pathScaleX = 100;
+            shape._pathScaleY = 100;
+
+            if(numberOfFaces <= 0) // oops ?
+                numberOfFaces = 1;
+
+            switch(numberOfFaces)
+            {
+                case 1: // torus 
+                    shape.ProfileCurve = (byte)ProfileShape.Circle | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Curve1;
+                    break;
+
+                case 2: // torus with hollow (a sl viewer whould see 4 faces on a hollow sphere)
+                    shape.ProfileCurve = (byte)ProfileShape.Circle | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Curve1;
+                    shape.ProfileHollow = 1;
+                    break;
+
+                case 3: // cylinder
+                    shape.ProfileCurve = (byte)ProfileShape.Circle | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Straight;
+                    break;
+
+                case 4: // cylinder with hollow
+                    shape.ProfileCurve = (byte)ProfileShape.Circle | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Straight;
+                    shape.ProfileHollow = 1;
+                    break;
+
+                case 5: // prism
+                    shape.ProfileCurve = (byte)ProfileShape.EquilateralTriangle | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Straight;
+                    break;
+
+                case 6: // box
+                    shape.ProfileCurve = (byte)ProfileShape.Square  | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Straight;
+                    break;
+
+                case 7: // box with hollow
+                    shape.ProfileCurve = (byte)ProfileShape.Square | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Straight;
+                    shape.ProfileHollow = 1;
+                    break;
+
+                default: // 8 faces  box with cut
+                    shape.ProfileCurve = (byte)ProfileShape.Square | (byte)HollowShape.Triangle;
+                    shape.PathCurve = (byte)Extrusion.Straight;
+                    shape.ProfileBegin = 1;
+                    break;
+            }
+
+            shape.SculptEntry = true;
+            shape.SculptType = (byte)OpenMetaverse.SculptType.Mesh;
+            shape.SculptTexture = meshAssetID;
 
             return shape;
         }
@@ -728,7 +792,12 @@ namespace OpenSim.Framework
                 return _lightColorR;
             }
             set {
-                _lightColorR = value;
+                if (value < 0)
+                    _lightColorR = 0;
+                else if (value > 1.0f)
+                    _lightColorR = 1.0f;
+                else
+                    _lightColorR = value;
             }
         }
 
@@ -737,7 +806,12 @@ namespace OpenSim.Framework
                 return _lightColorG;
             }
             set {
-                _lightColorG = value;
+                if (value < 0)
+                    _lightColorG = 0;
+                else if (value > 1.0f)
+                    _lightColorG = 1.0f;
+                else
+                    _lightColorG = value;
             }
         }
 
@@ -746,7 +820,12 @@ namespace OpenSim.Framework
                 return _lightColorB;
             }
             set {
-                _lightColorB = value;
+                if (value < 0)
+                    _lightColorB = 0;
+                else if (value > 1.0f)
+                    _lightColorB = 1.0f;
+                else
+                    _lightColorB = value;
             }
         }
 
@@ -755,7 +834,12 @@ namespace OpenSim.Framework
                 return _lightColorA;
             }
             set {
-                _lightColorA = value;
+                if (value < 0)
+                    _lightColorA = 0;
+                else if (value > 1.0f)
+                    _lightColorA = 1.0f;
+                else
+                    _lightColorA = value;
             }
         }
 
@@ -869,6 +953,11 @@ namespace OpenSim.Framework
 
         public ulong GetMeshKey(Vector3 size, float lod)
         {
+            return GetMeshKey(size, lod, false);
+        }
+
+        public ulong GetMeshKey(Vector3 size, float lod, bool convex)
+        {
             ulong hash = 5381;
 
             hash = djb2(hash, this.PathCurve);
@@ -913,6 +1002,9 @@ namespace OpenSim.Framework
                 for (int i = 0; i < scaleBytes.Length; i++)
                     hash = djb2(hash, scaleBytes[i]);
             }
+
+            if(convex)
+                hash = djb2(hash, 0xa5);
 
             return hash;
         }
@@ -1417,7 +1509,7 @@ namespace OpenSim.Framework
             prim.Textures = this.Textures;
 
             prim.Properties = new Primitive.ObjectProperties();
-            prim.Properties.Name = "Primitive";
+            prim.Properties.Name = "Object";
             prim.Properties.Description = "";
             prim.Properties.CreatorID = UUID.Zero;
             prim.Properties.GroupID = UUID.Zero;
@@ -1488,34 +1580,47 @@ namespace OpenSim.Framework
             {
                 MediaList ml = new MediaList();
                 ml.ReadXml(rawXml);
+                if(ml.Count == 0)
+                    return null;
                 return ml;
             }
 
             public void ReadXml(string rawXml)
             {
-                using (StringReader sr = new StringReader(rawXml))
+                try
                 {
-                    using (XmlTextReader xtr = new XmlTextReader(sr))
+                    using (StringReader sr = new StringReader(rawXml))
                     {
-                        xtr.MoveToContent();
-
-                        string type = xtr.GetAttribute("type");
-                        //m_log.DebugFormat("[MOAP]: Loaded media texture entry with type {0}", type);
-
-                        if (type != MEDIA_TEXTURE_TYPE)
-                            return;
-
-                        xtr.ReadStartElement("OSMedia");
-
-                        OSDArray osdMeArray = (OSDArray)OSDParser.DeserializeLLSDXml(xtr.ReadInnerXml());
-                        foreach (OSD osdMe in osdMeArray)
+                        using (XmlTextReader xtr = new XmlTextReader(sr))
                         {
-                            MediaEntry me = (osdMe is OSDMap ? MediaEntry.FromOSD(osdMe) : new MediaEntry());
-                            Add(me);
-                        }
+                            xtr.MoveToContent();
 
-                        xtr.ReadEndElement();
+                            string type = xtr.GetAttribute("type");
+                            //m_log.DebugFormat("[MOAP]: Loaded media texture entry with type {0}", type);
+
+                            if (type != MEDIA_TEXTURE_TYPE)
+                                return;
+
+                            xtr.ReadStartElement("OSMedia");
+                            OSD osdp = OSDParser.DeserializeLLSDXml(xtr.ReadInnerXml());
+                            if(osdp == null || !(osdp is OSDArray))
+                                return;
+
+                            OSDArray osdMeArray = osdp as OSDArray;
+                            if(osdMeArray.Count == 0)
+                                return;
+
+                            foreach (OSD osdMe in osdMeArray)
+                            {
+                                MediaEntry me = (osdMe is OSDMap ? MediaEntry.FromOSD(osdMe) : new MediaEntry());
+                                Add(me);
+                            }
+                        }
                     }
+                }
+                catch
+                {
+                    m_log.Debug("PrimitiveBaseShape] error decoding MOAP xml" );
                 }
             }
 

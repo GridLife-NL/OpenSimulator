@@ -116,6 +116,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_String llGetAnimation(string id);
           LSL_List llGetAnimationList(string id);
        LSL_Integer llGetAttached();
+          LSL_List llGetAttachedList(string id);
           LSL_List llGetBoundingBox(string obj);
         LSL_Vector llGetCameraPos();
       LSL_Rotation llGetCameraRot();
@@ -127,6 +128,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_String llGetEnv(LSL_String name);
         LSL_Vector llGetForce();
        LSL_Integer llGetFreeMemory();
+       LSL_Integer llGetUsedMemory();
        LSL_Integer llGetFreeURLs();
         LSL_Vector llGetGeometricCenter();
          LSL_Float llGetGMTclock();
@@ -204,12 +206,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_String llGetTimestamp();
         LSL_Vector llGetTorque();
        LSL_Integer llGetUnixTime();
-       LSL_Integer llGetUsedMemory();
         LSL_Vector llGetVel();
          LSL_Float llGetWallclock();
               void llGiveInventory(string destination, string inventory);
               void llGiveInventoryList(string destination, string category, LSL_List inventory);
-              void llGiveMoney(string destination, int amount);
+       LSL_Integer llGiveMoney(string destination, int amount);
         LSL_String llTransferLindenDollars(string destination, int amount);
               void llGodLikeRezObject(string inventory, LSL_Vector pos);
          LSL_Float llGround(LSL_Vector offset);
@@ -325,6 +326,9 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
        LSL_Integer llRound(double f);
        LSL_Integer llSameGroup(string agent);
               void llSay(int channelID, string text);
+       LSL_Integer llScaleByFactor(double scaling_factor);
+        LSL_Float  llGetMaxScaleFactor();
+        LSL_Float  llGetMinScaleFactor();
               void llScaleTexture(double u, double v, int face);
        LSL_Integer llScriptDanger(LSL_Vector pos);
               void llScriptProfiler(LSL_Integer flag);
@@ -344,7 +348,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
               void llSetDamage(double damage);
               void llSetForce(LSL_Vector force, int local);
               void llSetForceAndTorque(LSL_Vector force, LSL_Vector torque, int local);
-              void llSetVelocity(LSL_Vector velocity, int local);
+              void llSetVelocity(LSL_Vector vel, int local);
               void llSetAngularVelocity(LSL_Vector angularVelocity, int local);
               void llSetHoverHeight(double height, int water, double tau);
               void llSetInventoryPermMask(string item, int mask, int value);
@@ -362,11 +366,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
               void llSetParcelMusicURL(string url);
               void llSetPayPrice(int price, LSL_List quick_pay_buttons);
               void llSetPos(LSL_Vector pos);
+       LSL_Integer llSetRegionPos(LSL_Vector pos);
        LSL_Integer llSetPrimMediaParams(LSL_Integer face, LSL_List rules);
               void llSetPrimitiveParams(LSL_List rules);
               void llSetLinkPrimitiveParamsFast(int linknum, LSL_List rules);
               void llSetPrimURL(string url);
-       LSL_Integer llSetRegionPos(LSL_Vector pos);
               void llSetRemoteScriptAccessPin(int pin);
               void llSetRot(LSL_Rotation rot);
               void llSetScale(LSL_Vector scale);
@@ -429,10 +433,20 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_Vector llWind(LSL_Vector offset);
         LSL_String llXorBase64Strings(string str1, string str2);
         LSL_String llXorBase64StringsCorrect(string str1, string str2);
-              void print(string str);
+       LSL_Integer llGetLinkNumberOfSides(LSL_Integer link);
+              void llSetPhysicsMaterial(int material_bits, LSL_Float material_gravity_modifier, LSL_Float material_restitution, LSL_Float material_friction, LSL_Float material_density);
 
               void SetPrimitiveParamsEx(LSL_Key prim, LSL_List rules, string originFunc);
               void llSetKeyframedMotion(LSL_List frames, LSL_List options);
           LSL_List GetPrimitiveParamsEx(LSL_Key prim, LSL_List rules);
+          LSL_List llGetPhysicsMaterial();
+          void     llSetAnimationOverride(LSL_String animState, LSL_String anim);
+              void llResetAnimationOverride(LSL_String anim_state);
+        LSL_String llGetAnimationOverride(LSL_String anim_state);
+        LSL_String llJsonGetValue(LSL_String json, LSL_List specifiers);
+          LSL_List llJson2List(LSL_String json);
+        LSL_String llList2Json(LSL_String type, LSL_List values);
+        LSL_String llJsonSetValue(LSL_String json, LSL_List specifiers, LSL_String value);
+        LSL_String llJsonValueType(LSL_String json, LSL_List specifiers);
     }
 }

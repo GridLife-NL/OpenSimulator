@@ -41,6 +41,10 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
 
     public delegate void RaycastCallback(bool hitYN, Vector3 collisionPoint, uint localid, float distance, Vector3 normal);
     public delegate void RayCallback(List<ContactResult> list);
+    public delegate void ProbeBoxCallback(List<ContactResult> list);
+    public delegate void ProbeSphereCallback(List<ContactResult> list);
+    public delegate void ProbePlaneCallback(List<ContactResult> list);
+    public delegate void SitAvatarCallback(int status, uint partID, Vector3 offset, Quaternion Orientation);
 
     public delegate void JointMoved(PhysicsJoint joint);
     public delegate void JointDeactivated(PhysicsJoint joint);
@@ -89,6 +93,8 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         public Vector3 Normal;
     }
 
+
+
     public abstract class PhysicsScene
     {
 //        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
@@ -105,6 +111,8 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         /// are "OpenDynamicsEngine" and "BulletSim" but others are possible.
         /// </summary>
         public string EngineType { get; protected set; }
+
+        public string EngineName { get; protected set; }
 
         // The only thing that should register for this event is the SceneGraph
         // Anything else could cause problems.
@@ -143,6 +151,7 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         /// <param name="size"></param>
         /// <param name="isFlying"></param>
         /// <returns></returns>
+
         public abstract PhysicsActor AddAvatar(
             string avName, Vector3 position, Vector3 velocity, Vector3 size, bool isFlying);
 
@@ -161,9 +170,23 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         {
             PhysicsActor ret = AddAvatar(avName, position, velocity, size, isFlying);
 
-            if (ret != null) 
+            if (ret != null)
                 ret.LocalID = localID;
 
+            return ret;
+        }
+
+        public virtual PhysicsActor AddAvatar(
+            uint localID, string avName, Vector3 position, Vector3 size, bool isFlying)
+        {
+            PhysicsActor ret = AddAvatar(localID, avName, position, Vector3.Zero, size, isFlying);
+            return ret;
+        }
+
+        public virtual PhysicsActor AddAvatar(
+            uint localID, string avName, Vector3 position, Vector3 size, float feetOffset, bool isFlying)
+        {
+            PhysicsActor ret = AddAvatar(localID, avName, position, Vector3.Zero, size, isFlying);
             return ret;
         }
 
@@ -181,6 +204,19 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
 
         public abstract PhysicsActor AddPrimShape(string primName, PrimitiveBaseShape pbs, Vector3 position,
                                                   Vector3 size, Quaternion rotation, bool isPhysical, uint localid);
+
+        public virtual PhysicsActor AddPrimShape(string primName, PhysicsActor parent, PrimitiveBaseShape pbs, Vector3 position,
+                                                  uint localid, byte[] sdata)
+        {
+            return null;
+        }
+
+        public virtual PhysicsActor AddPrimShape(string primName, PrimitiveBaseShape pbs, Vector3 position,
+                                                  Vector3 size, Quaternion rotation, bool isPhysical, bool isPhantom, uint localid)
+        {
+            return AddPrimShape(primName, pbs, position, size, rotation, isPhysical, localid);
+        }
+
 
         public virtual PhysicsActor AddPrimShape(string primName, PrimitiveBaseShape pbs, Vector3 position,
                                                   Vector3 size, Quaternion rotation, bool isPhysical, bool isPhantom, byte shapetype, uint localid)
@@ -255,6 +291,9 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
 
         public abstract void AddPhysicsActorTaint(PhysicsActor prim);
 
+
+        public virtual void ProcessPreSimulation() { }
+
         /// <summary>
         /// Perform a simulation of the current physics scene over the given timestep.
         /// </summary>
@@ -293,28 +332,19 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
             return false;
         }
 
-        public virtual bool SupportsCombining()
-        {
-            return false;
-        }
-
-        public virtual void Combine(PhysicsScene pScene, Vector3 offset, Vector3 extents) {}
-
-        public virtual void UnCombine(PhysicsScene pScene) {}
-
         /// <summary>
         /// Queue a raycast against the physics scene.
         /// The provided callback method will be called when the raycast is complete
-        /// 
-        /// Many physics engines don't support collision testing at the same time as 
-        /// manipulating the physics scene, so we queue the request up and callback 
+        ///
+        /// Many physics engines don't support collision testing at the same time as
+        /// manipulating the physics scene, so we queue the request up and callback
         /// a custom method when the raycast is complete.
         /// This allows physics engines that give an immediate result to callback immediately
         /// and ones that don't, to callback when it gets a result back.
-        /// 
+        ///
         /// ODE for example will not allow you to change the scene while collision testing or
         /// it asserts, 'opteration not valid for locked space'.  This includes adding a ray to the scene.
-        /// 
+        ///
         /// This is named RayCastWorld to not conflict with modrex's Raycast method.
         /// </summary>
         /// <param name="position">Origin of the ray</param>
@@ -346,6 +376,31 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         public virtual bool SupportsRaycastWorldFiltered()
         {
             return false;
+        }
+
+        public virtual List<ContactResult> RaycastActor(PhysicsActor actor, Vector3 position, Vector3 direction, float length, int Count, RayFilterFlags flags)
+        {
+            return new List<ContactResult>();
+        }
+
+        public virtual List<ContactResult> BoxProbe(Vector3 position, Vector3 size, Quaternion orientation, int Count, RayFilterFlags flags)
+        {
+            return new List<ContactResult>();
+        }
+
+        public virtual List<ContactResult> SphereProbe(Vector3 position, float radius, int Count, RayFilterFlags flags)
+        {
+            return new List<ContactResult>();
+        }
+
+        public virtual List<ContactResult> PlaneProbe(PhysicsActor actor, Vector4 plane, int Count, RayFilterFlags flags)
+        {
+            return new List<ContactResult>();
+        }
+
+        public virtual int SitAvatar(PhysicsActor actor, Vector3 AbsolutePosition, Vector3 CameraPosition, Vector3 offset, Vector3 AvatarSize, SitAvatarCallback PhysicsSitResponse)
+        {
+            return 0;
         }
 
         // Extendable interface for new, physics engine specific operations

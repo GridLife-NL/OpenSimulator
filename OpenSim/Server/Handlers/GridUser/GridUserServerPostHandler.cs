@@ -60,9 +60,9 @@ namespace OpenSim.Server.Handlers.GridUser
         protected override byte[] ProcessRequest(string path, Stream requestData,
                 IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
         {
-            StreamReader sr = new StreamReader(requestData);
-            string body = sr.ReadToEnd();
-            sr.Close();
+            string body;
+            using(StreamReader sr = new StreamReader(requestData))
+                body = sr.ReadToEnd();
             body = body.Trim();
 
             //m_log.DebugFormat("[XXX]: query String: {0}", body);
@@ -185,6 +185,9 @@ namespace OpenSim.Server.Handlers.GridUser
 
             GridUserInfo guinfo = m_GridUserService.GetGridUserInfo(user);
 
+            if (guinfo == null)
+                return FailureResult();
+
             Dictionary<string, object> result = new Dictionary<string, object>();
             if (guinfo != null)
                 result["result"] = guinfo.ToKeyValuePairs();
@@ -225,6 +228,8 @@ namespace OpenSim.Server.Handlers.GridUser
                 int i = 0;
                 foreach (GridUserInfo pinfo in pinfos)
                 {
+                    if(pinfo == null)
+                        continue;
                     Dictionary<string, object> rinfoDict = pinfo.ToKeyValuePairs();
                     result["griduser" + i] = rinfoDict;
                     i++;

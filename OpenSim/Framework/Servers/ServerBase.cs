@@ -56,7 +56,8 @@ namespace OpenSim.Framework.Servers
         protected ICommandConsole m_console;
 
         protected OpenSimAppender m_consoleAppender;
-        protected FileAppender m_logFileAppender; 
+        protected FileAppender m_logFileAppender;
+        protected FileAppender m_statsLogFileAppender;
 
         protected DateTime m_startuptime;
         protected string m_startupDirectory = Environment.CurrentDirectory;
@@ -81,7 +82,7 @@ namespace OpenSim.Framework.Servers
         {
             if (File.Exists(path))
                 m_log.ErrorFormat(
-                    "[SERVER BASE]: Previous pid file {0} still exists on startup.  Possibly previously unclean shutdown.", 
+                    "[SERVER BASE]: Previous pid file {0} still exists on startup.  Possibly previously unclean shutdown.",
                     path);
 
             try
@@ -103,7 +104,7 @@ namespace OpenSim.Framework.Servers
                 m_log.Warn(string.Format("[SERVER BASE]: Could not create PID file at {0} ", path), e);
             }
         }
-           
+
         protected void RemovePIDFile()
         {
             if (m_pidFile != String.Empty)
@@ -156,6 +157,10 @@ namespace OpenSim.Framework.Servers
                 {
                     m_logFileAppender = (FileAppender)appender;
                 }
+                else if (appender.Name == "StatsLogFileAppender")
+                {
+                    m_statsLogFileAppender = (FileAppender)appender;
+                }
             }
 
             if (null == m_consoleAppender)
@@ -166,11 +171,11 @@ namespace OpenSim.Framework.Servers
             {
                 // FIXME: This should be done through an interface rather than casting.
                 m_consoleAppender.Console = (ConsoleBase)m_console;
-                
+
                 // If there is no threshold set then the threshold is effectively everything.
                 if (null == m_consoleAppender.Threshold)
                     m_consoleAppender.Threshold = Level.All;
-                
+
                 Notice(String.Format("Console log level is {0}", m_consoleAppender.Threshold));
             }
 
@@ -184,6 +189,18 @@ namespace OpenSim.Framework.Servers
                 }
 
                 m_log.InfoFormat("[SERVER BASE]: Logging started to file {0}", m_logFileAppender.File);
+            }
+
+            if (m_statsLogFileAppender != null && startupConfig != null)
+            {
+                string cfgStatsFileName = startupConfig.GetString("StatsLogFile", null);
+                if (cfgStatsFileName != null)
+                {
+                    m_statsLogFileAppender.File = cfgStatsFileName;
+                    m_statsLogFileAppender.ActivateOptions();
+                }
+
+                m_log.InfoFormat("[SERVER BASE]: Stats Logging started to file {0}", m_statsLogFileAppender.File);
             }
         }
 
@@ -205,11 +222,11 @@ namespace OpenSim.Framework.Servers
                 "General", false, "show uptime", "show uptime", "Show server uptime", HandleShow);
 
             m_console.Commands.AddCommand(
-                "General", false, "get log level", "get log level", "Get the current console logging level", 
+                "General", false, "get log level", "get log level", "Get the current console logging level",
                 (mod, cmd) => ShowLogLevel());
 
             m_console.Commands.AddCommand(
-                "General", false, "set log level", "set log level <level>", 
+                "General", false, "set log level", "set log level <level>",
                 "Set the console logging level for this session.", HandleSetLogLevel);
 
             m_console.Commands.AddCommand(
@@ -222,14 +239,14 @@ namespace OpenSim.Framework.Servers
                 "config get [<section>] [<key>]",
                 "Synonym for config show",
                 HandleConfig);
-            
+
             m_console.Commands.AddCommand(
                 "General", false, "config show",
                 "config show [<section>] [<key>]",
-                "Show config information", 
+                "Show config information",
                 "If neither section nor field are specified, then the whole current configuration is printed." + Environment.NewLine
                 + "If a section is given but not a field, then all fields in that section are printed.",
-                HandleConfig);            
+                HandleConfig);
 
             m_console.Commands.AddCommand(
                 "General", false, "config save",
@@ -258,18 +275,6 @@ namespace OpenSim.Framework.Servers
                 (string module, string[] args) => Notice(GetThreadsReport()));
 
             m_console.Commands.AddCommand (
-                "Debug", false, "debug comms set",
-                "debug comms set serialosdreq true|false",
-                "Set comms parameters.  For debug purposes.",
-                HandleDebugCommsSet);
-
-            m_console.Commands.AddCommand (
-                "Debug", false, "debug comms status",
-                "debug comms status",
-                "Show current debug comms parameters.",
-                HandleDebugCommsStatus);
-
-            m_console.Commands.AddCommand (
                 "Debug", false, "debug threadpool set",
                 "debug threadpool set worker|iocp min|max <n>",
                 "Set threadpool parameters.  For debug purposes.",
@@ -280,7 +285,7 @@ namespace OpenSim.Framework.Servers
                 "debug threadpool status",
                 "Show current debug threadpool parameters.",
                 HandleDebugThreadpoolStatus);
-            
+
             m_console.Commands.AddCommand(
                 "Debug", false, "debug threadpool level",
                 "debug threadpool level 0.." + Util.MAX_THREADPOOL_LEVEL,
@@ -326,45 +331,11 @@ namespace OpenSim.Framework.Servers
 
         public void RegisterCommonComponents(IConfigSource configSource)
         {
-            IConfig networkConfig = configSource.Configs["Network"];
+//            IConfig networkConfig = configSource.Configs["Network"];
 
-            if (networkConfig != null)
-            {
-                WebUtil.SerializeOSDRequestsPerEndpoint = networkConfig.GetBoolean("SerializeOSDRequests", false);
-            }
-    
             m_serverStatsCollector = new ServerStatsCollector();
             m_serverStatsCollector.Initialise(configSource);
             m_serverStatsCollector.Start();
-        }
-
-        private void HandleDebugCommsStatus(string module, string[] args)
-        {
-            Notice("serialosdreq is {0}", WebUtil.SerializeOSDRequestsPerEndpoint);
-        }
-
-        private void HandleDebugCommsSet(string module, string[] args)
-        {
-            if (args.Length != 5)
-            {
-                Notice("Usage: debug comms set serialosdreq true|false");
-                return;
-            }
-
-            if (args[3] != "serialosdreq")
-            {
-                Notice("Usage: debug comms set serialosdreq true|false");
-                return;
-            }
-
-            bool setSerializeOsdRequests;
-
-            if (!ConsoleUtil.TryParseConsoleBool(m_console, args[4], out setSerializeOsdRequests))
-                return;
-
-            WebUtil.SerializeOSDRequestsPerEndpoint = setSerializeOsdRequests;
-
-            Notice("serialosdreq is now {0}", setSerializeOsdRequests);
         }
 
         private void HandleShowThreadpoolCallsActive(string module, string[] args)
@@ -432,7 +403,7 @@ namespace OpenSim.Framework.Servers
 
             ThreadPool.GetAvailableThreads(out workerThreads, out iocpThreads);
             Notice("Available worker threads: {0}", workerThreads);
-            Notice("Available IOCP threads:   {0}", iocpThreads);           
+            Notice("Available IOCP threads:   {0}", iocpThreads);
         }
 
         private void HandleDebugThreadpoolSet(string module, string[] args)
@@ -488,7 +459,7 @@ namespace OpenSim.Framework.Servers
                         fail = true;
                 }
             }
-             
+
             if (fail)
             {
                 Notice("ERROR: Could not set {0} {1} threads to {2}", poolType, bound, newThreads);
@@ -582,7 +553,7 @@ namespace OpenSim.Framework.Servers
             if (cmdparams.Length > 0)
             {
                 string firstParam = cmdparams[0].ToLower();
-                
+
                 switch (firstParam)
                 {
                     case "set":
@@ -633,12 +604,12 @@ namespace OpenSim.Framework.Servers
                                 {
                                     Notice("[{0}]", config.Name);
                                     foreach (string key in config.GetKeys())
-                                        Notice("  {0} = {1}", key, config.GetString(key));                                
+                                        Notice("  {0} = {1}", key, config.GetString(key));
                                 }
                                 else
                                 {
                                     Notice(
-                                        "config get {0} {1} : {2}", 
+                                        "config get {0} {1} : {2}",
                                         cmdparams[1], cmdparams[2], config.GetString(cmdparams[2]));
                                 }
                             }
@@ -692,10 +663,10 @@ namespace OpenSim.Framework.Servers
             }
 
             string rawLevel = cmd[3];
-            
+
             ILoggerRepository repository = LogManager.GetRepository();
             Level consoleLevel = repository.LevelMap[rawLevel];
-            
+
             if (consoleLevel != null)
                 m_consoleAppender.Threshold = consoleLevel;
             else
@@ -770,9 +741,9 @@ namespace OpenSim.Framework.Servers
         protected void ShowInfo()
         {
             Notice(GetVersionText());
-            Notice("Startup directory: " + m_startupDirectory);                
+            Notice("Startup directory: " + m_startupDirectory);
             if (null != m_consoleAppender)
-                Notice(String.Format("Console log level: {0}", m_consoleAppender.Threshold));              
+                Notice(String.Format("Console log level: {0}", m_consoleAppender.Threshold));
         }
 
         /// <summary>
@@ -842,7 +813,7 @@ namespace OpenSim.Framework.Servers
                 {
                     StreamReader RevisionFile = File.OpenText(svnRevisionFileName);
                     buildVersion = RevisionFile.ReadLine();
-                    buildVersion.Trim();
+                    buildVersion = buildVersion.Trim();
                     RevisionFile.Close();
                 }
 
@@ -871,9 +842,9 @@ namespace OpenSim.Framework.Servers
             }
         }
 
-        protected string GetVersionText()
+        public string GetVersionText()
         {
-            return String.Format("Version: {0} (SIMULATION/{1} - SIMULATION/{2})", 
+            return String.Format("Version: {0} (SIMULATION/{1} - SIMULATION/{2})",
                 m_version, VersionInfo.SimulationServiceVersionSupportedMin, VersionInfo.SimulationServiceVersionSupportedMax);
         }
 
@@ -898,7 +869,7 @@ namespace OpenSim.Framework.Servers
             foreach (Watchdog.ThreadWatchdogInfo twi in threads)
             {
                 Thread t = twi.Thread;
-                
+
                 sb.AppendFormat(
                     reportFormat,
                     t.ManagedThreadId,
@@ -911,16 +882,12 @@ namespace OpenSim.Framework.Servers
                 sb.Append("\n");
             }
 
-            sb.Append("\n");
+            sb.Append(GetThreadPoolReport());
 
-            // For some reason mono 2.6.7 returns an empty threads set!  Not going to confuse people by reporting
-            // zero active threads.
+            sb.Append("\n");
             int totalThreads = Process.GetCurrentProcess().Threads.Count;
             if (totalThreads > 0)
-                sb.AppendFormat("Total threads active: {0}\n\n", totalThreads);
-
-            sb.Append("Main threadpool (excluding script engine pools)\n");
-            sb.Append(GetThreadPoolReport());
+                sb.AppendFormat("Total process threads active: {0}\n\n", totalThreads);
 
             return sb.ToString();
         }
@@ -931,15 +898,46 @@ namespace OpenSim.Framework.Servers
         /// <returns></returns>
         public static string GetThreadPoolReport()
         {
+
+            StringBuilder sb = new StringBuilder();
+
+            // framework pool is alwasy active
+            int maxWorkers;
+            int minWorkers;
+            int curWorkers;
+            int maxComp;
+            int minComp;
+            int curComp;
+
+            try
+            {
+                ThreadPool.GetMaxThreads(out maxWorkers, out maxComp);
+                ThreadPool.GetMinThreads(out minWorkers, out minComp);
+                ThreadPool.GetAvailableThreads(out curWorkers, out curComp);
+                curWorkers = maxWorkers - curWorkers;
+                curComp = maxComp - curComp;
+
+                sb.Append("\nFramework main threadpool \n");
+                sb.AppendFormat("workers:    {0} ({1} / {2})\n", curWorkers, maxWorkers, minWorkers);
+                sb.AppendFormat("Completion: {0} ({1} / {2})\n", curComp, maxComp, minComp);
+            }
+            catch { }
+
+            if (
+                Util.FireAndForgetMethod == FireAndForgetMethod.QueueUserWorkItem
+                    || Util.FireAndForgetMethod == FireAndForgetMethod.UnsafeQueueUserWorkItem)
+            {
+                sb.AppendFormat("\nThread pool used: Framework main threadpool\n");
+                return sb.ToString();
+            }
+
             string threadPoolUsed = null;
             int maxThreads = 0;
             int minThreads = 0;
             int allocatedThreads = 0;
             int inUseThreads = 0;
             int waitingCallbacks = 0;
-            int completionPortThreads = 0;
 
-            StringBuilder sb = new StringBuilder();
             if (Util.FireAndForgetMethod == FireAndForgetMethod.SmartThreadPool)
             {
                 STPInfo stpi = Util.GetSmartThreadPoolInfo();
@@ -955,22 +953,10 @@ namespace OpenSim.Framework.Servers
                     waitingCallbacks = stpi.WaitingCallbacks;
                 }
             }
-            else if (
-                Util.FireAndForgetMethod == FireAndForgetMethod.QueueUserWorkItem
-                    || Util.FireAndForgetMethod == FireAndForgetMethod.UnsafeQueueUserWorkItem)
-            {
-                threadPoolUsed = "BuiltInThreadPool";
-                ThreadPool.GetMaxThreads(out maxThreads, out completionPortThreads);
-                ThreadPool.GetMinThreads(out minThreads, out completionPortThreads);
-                int availableThreads;
-                ThreadPool.GetAvailableThreads(out availableThreads, out completionPortThreads);
-                inUseThreads = maxThreads - availableThreads;
-                allocatedThreads = -1;
-                waitingCallbacks = -1;
-            }
-
+ 
             if (threadPoolUsed != null)
             {
+                sb.Append("\nThreadpool (excluding script engine pools)\n");
                 sb.AppendFormat("Thread pool used           : {0}\n", threadPoolUsed);
                 sb.AppendFormat("Max threads                : {0}\n", maxThreads);
                 sb.AppendFormat("Min threads                : {0}\n", minThreads);
@@ -1005,7 +991,7 @@ namespace OpenSim.Framework.Servers
                 MainConsole.Instance.OutputFormat("Aborted thread with id {0}", threadId);
             else
                 MainConsole.Instance.OutputFormat("ERROR - Thread with id {0} not found in managed threads", threadId);
-        } 
+        }
 
         /// <summary>
         /// Console output is only possible if a console has been established.
@@ -1020,13 +1006,13 @@ namespace OpenSim.Framework.Servers
                 m_console.Output(msg);
             }
         }
-        
+
         /// <summary>
         /// Console output is only possible if a console has been established.
         /// That is something that cannot be determined within this class. So
         /// all attempts to use the console MUST be verified.
         /// </summary>
-        /// <param name="format"></param>        
+        /// <param name="format"></param>
         /// <param name="components"></param>
         protected void Notice(string format, params object[] components)
         {

@@ -52,7 +52,7 @@ namespace OpenSim.Server.Handlers.Hypergrid
     public class GatekeeperAgentHandler : OpenSim.Server.Handlers.Simulation.AgentPostHandler
     {
 //        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        
+
         private IGatekeeperService m_GatekeeperService;
 
         public GatekeeperAgentHandler(IGatekeeperService gatekeeper, bool proxy) : base("/foreignagent")
@@ -62,7 +62,7 @@ namespace OpenSim.Server.Handlers.Hypergrid
         }
 
         protected override bool CreateAgent(GridRegion source, GridRegion gatekeeper, GridRegion destination,
-            AgentCircuitData aCircuit, uint teleportFlags, bool fromLogin, out string reason)
+            AgentCircuitData aCircuit, uint teleportFlags, bool fromLogin, EntityTransferContext ctx, out string reason)
         {
             return m_GatekeeperService.LoginAgent(source, aCircuit, destination, out reason);
         }

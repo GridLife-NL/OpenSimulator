@@ -96,6 +96,8 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
         // private static readonly ILog m_log =
         //     LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
+        private const int DEBUG_CHANNEL = 2147483647;
+
         private ListenerManager m_listenerManager;
         private Queue m_pending;
         private Queue m_pendingQ;
@@ -111,7 +113,7 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
             // wrap this in a try block so that defaults will work if
             // the config file doesn't specify otherwise.
             int maxlisteners = 1000;
-            int maxhandles = 64;
+            int maxhandles = 65;
             try
             {
                 m_whisperdistance = config.Configs["Chat"].GetInt(
@@ -128,8 +130,15 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
             catch (Exception)
             {
             }
-            if (maxlisteners < 1) maxlisteners = int.MaxValue;
-            if (maxhandles < 1) maxhandles = int.MaxValue;
+
+            if (maxlisteners < 1)
+                maxlisteners = int.MaxValue;
+            if (maxhandles < 1)
+                maxhandles = int.MaxValue;
+
+            if (maxlisteners < maxhandles)
+                maxlisteners = maxhandles;
+
             m_listenerManager = new ListenerManager(maxlisteners, maxhandles);
             m_pendingQ = new Queue();
             m_pending = Queue.Synchronized(m_pendingQ);
@@ -309,6 +318,7 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
             // Determine which listen event filters match the given set of arguments, this results
             // in a limited set of listeners, each belonging a host. If the host is in range, add them
             // to the pending queue.
+
             foreach (ListenerInfo li
                     in m_listenerManager.GetListeners(UUID.Zero, channel,
                     name, id, msg))
@@ -366,79 +376,82 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
         /// <param name='msg'>
         /// Message.
         /// </param>
-        public void DeliverMessageTo(UUID target, int channel, Vector3 pos,
-                string name, UUID id, string msg)
+        public void DeliverMessageTo(UUID target, int channel, Vector3 pos, string name, UUID id, string msg)
         {
-            // Is id an avatar?
-            ScenePresence sp = m_scene.GetScenePresence(target);
+            if (channel == DEBUG_CHANNEL)
+                return;
 
+            if(target == UUID.Zero)
+                return;
+
+            // Is target an avatar?
+            ScenePresence sp = m_scene.GetScenePresence(target);
             if (sp != null)
             {
-                // ignore if a child agent this is restricted to inside one
-                // region
-                if (sp.IsChildAgent)
+                 // Send message to avatar
+                if (channel == 0)
+                {
+                   // Channel 0 goes to viewer ONLY
+                    m_scene.SimChat(Utils.StringToBytes(msg), ChatTypeEnum.Broadcast, 0, pos, name, id, target, false, false);
+                    return;
+                }
+
+                // for now messages to prims don't cross regions
+                if(sp.IsChildAgent)
                     return;
 
-                // Channel zero only goes to the avatar
-                // non zero channel messages only go to the attachments of the avatar.
-                if (channel != 0)
+                List<SceneObjectGroup> attachments = sp.GetAttachments();
+
+                if (attachments.Count == 0)
+                    return;
+
+                // Get uuid of attachments
+                List<UUID> targets = new List<UUID>();
+                foreach (SceneObjectGroup sog in attachments)
                 {
-                    List<SceneObjectGroup> attachments = sp.GetAttachments();
-                    if (attachments.Count == 0)
-                        return;
-
-                    // Get uuid of attachments
-                    List<UUID> targets = new List<UUID>();
-                    foreach (SceneObjectGroup sog in attachments)
+                    if (!sog.IsDeleted)
                     {
-                        if (!sog.IsDeleted)
-                            targets.Add(sog.UUID);
+                        SceneObjectPart[] parts = sog.Parts;
+                        foreach(SceneObjectPart p in parts)
+                            targets.Add(p.UUID);
                     }
+                }
 
-                    // Need to check each attachment
-                    foreach (ListenerInfo li
-                            in m_listenerManager.GetListeners(UUID.Zero,
-                            channel, name, id, msg))
-                    {
-                        if (li.GetHostID().Equals(id))
-                            continue;
+                foreach (ListenerInfo li in m_listenerManager.GetListeners(UUID.Zero, channel, name, id, msg))
+                {
+                    UUID liHostID = li.GetHostID();
+                    if (liHostID.Equals(id))
+                        continue;
+                    if (m_scene.GetSceneObjectPart(liHostID) == null)
+                        continue;
 
-                        if (m_scene.GetSceneObjectPart(
-                                li.GetHostID()) == null)
-                        {
-                            continue;
-                        }
-
-                        if (targets.Contains(li.GetHostID()))
-                            QueueMessage(new ListenerInfo(li, name, id, msg));
-                    }
+                    if (targets.Contains(liHostID))
+                        QueueMessage(new ListenerInfo(li, name, id, msg));
                 }
 
                 return;
             }
 
-            // No avatar found so look for an object
-            foreach (ListenerInfo li
-                    in m_listenerManager.GetListeners(UUID.Zero, channel,
-                    name, id, msg))
+            SceneObjectPart part = m_scene.GetSceneObjectPart(target);
+            if (part == null) // Not even an object
+                return; // No error
+
+            foreach (ListenerInfo li in m_listenerManager.GetListeners(UUID.Zero, channel, name, id, msg))
             {
+                UUID liHostID = li.GetHostID();
                 // Dont process if this message is from yourself!
-                if (li.GetHostID().Equals(id))
+                if (liHostID.Equals(id))
                     continue;
 
-                SceneObjectPart sPart = m_scene.GetSceneObjectPart(
-                        li.GetHostID());
-                if (sPart == null)
+                if (m_scene.GetSceneObjectPart(liHostID) == null)
                     continue;
 
-                if (li.GetHostID().Equals(target))
+                if (liHostID.Equals(target))
                 {
                     QueueMessage(new ListenerInfo(li, name, id, msg));
                     break;
                 }
             }
-
-            return;
         }
 
         protected void QueueMessage(ListenerInfo li)
@@ -557,9 +570,9 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
                 return coll[0].GetHandle();
             }
 
-            if (m_curlisteners < m_maxlisteners)
+            lock (m_listeners)
             {
-                lock (m_listeners)
+                if (m_curlisteners < m_maxlisteners)
                 {
                     int newHandle = GetNewHandle(itemID);
 
@@ -599,11 +612,9 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
                                 li.GetHandle().Equals(handle))
                         {
                             lis.Value.Remove(li);
+                            m_curlisteners--;
                             if (lis.Value.Count == 0)
-                            {
-                                m_listeners.Remove(lis.Key);
-                                m_curlisteners--;
-                            }
+                                m_listeners.Remove(lis.Key); // bailing of loop so this does not smoke
                             // there should be only one, so we bail out early
                             return;
                         }
@@ -711,6 +722,9 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
                         handles.Add(li.GetHandle());
                 }
             }
+
+            if(handles.Count >= m_maxhandles)
+                return -1;
 
             // Note: 0 is NOT a valid handle for llListen() to return
             for (int i = 1; i <= m_maxhandles; i++)

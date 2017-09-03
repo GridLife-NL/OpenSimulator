@@ -93,7 +93,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
         private const int AGENT = 1;
         private const int AGENT_BY_USERNAME = 0x10;
         private const int NPC = 0x20;
-        private const int OS_NPC = 0x01000000;
         private const int ACTIVE = 2;
         private const int PASSIVE = 4;
         private const int SCRIPTED = 8;
@@ -161,7 +160,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
             ts.arc = arc;
             ts.host = host;
 
-            ts.next = DateTime.Now.ToUniversalTime().AddSeconds(ts.interval);
+            ts.next = DateTime.UtcNow.AddSeconds(ts.interval);
 
             AddSenseRepeater(ts);
         }
@@ -197,14 +196,20 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
         public void CheckSenseRepeaterEvents()
         {
             // Go through all timers
-            foreach (SensorInfo ts in SenseRepeaters)
+
+            List<SensorInfo> curSensors;
+            lock(SenseRepeatListLock)
+                curSensors = SenseRepeaters;
+
+            DateTime now = DateTime.UtcNow;
+            foreach (SensorInfo ts in curSensors)
             {
                 // Time has passed?
-                if (ts.next.ToUniversalTime() < DateTime.Now.ToUniversalTime())
+                if (ts.next < now)
                 {
                     SensorSweep(ts);
                     // set next interval
-                    ts.next = DateTime.Now.ToUniversalTime().AddSeconds(ts.interval);
+                    ts.next = now.AddSeconds(ts.interval);
                 }
             }
         }
@@ -240,7 +245,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
             List<SensedEntity> sensedEntities = new List<SensedEntity>();
 
             // Is the sensor type is AGENT and not SCRIPTED then include agents
-            if ((ts.type & (AGENT | AGENT_BY_USERNAME | NPC | OS_NPC)) != 0 && (ts.type & SCRIPTED) == 0)
+            if ((ts.type & (AGENT | AGENT_BY_USERNAME | NPC)) != 0 && (ts.type & SCRIPTED) == 0)
             {
                 sensedEntities.AddRange(doAgentSensor(ts));
             }
@@ -339,7 +344,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
             float dy;
             float dz;
 
-            Quaternion q = SensePoint.GetWorldRotation();
+//            Quaternion q = SensePoint.RotationOffset;
+            Quaternion q = SensePoint.GetWorldRotation();		// non-attached prim Sensor *always* uses World rotation!
             if (SensePoint.ParentGroup.IsAttachment)
             {
                 // In attachments, rotate the sensor cone with the
@@ -351,14 +357,15 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
                 // your head but the sensor will stay with your (global)
                 // avatar rotation and position.
                 // Position of a sensor in a child prim attached to an avatar
-                // will be still wrong. 
+                // will be still wrong.
                 ScenePresence avatar = m_CmdManager.m_ScriptEngine.World.GetScenePresence(SensePoint.ParentGroup.AttachedAvatar);
 
                 // Don't proceed if the avatar for this attachment has since been removed from the scene.
                 if (avatar == null)
                     return sensedEntities;
 
-                q = avatar.GetWorldRotation() * q;
+                fromRegionPos = avatar.AbsolutePosition;
+                q = avatar.Rotation;
             }
 
             LSL_Types.Quaternion r = new LSL_Types.Quaternion(q);
@@ -402,7 +409,9 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
                     objtype = 0;
 
                     part = ((SceneObjectGroup)ent).RootPart;
-                    if (part.ParentGroup.AttachmentPoint != 0) // Attached so ignore
+                    if (part.ParentGroup.RootPart.Shape.PCode != (byte)PCode.Tree &&
+                        part.ParentGroup.RootPart.Shape.PCode != (byte)PCode.NewTree &&
+                        part.ParentGroup.AttachmentPoint != 0) // Attached so ignore
                         continue;
 
                     if (part.Inventory.ContainsScripts())
@@ -470,7 +479,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
 
             SceneObjectPart SensePoint = ts.host;
             Vector3 fromRegionPos = SensePoint.GetWorldPosition();
-            
+
             Quaternion q = SensePoint.GetWorldRotation();
             if (SensePoint.ParentGroup.IsAttachment)
             {
@@ -483,14 +492,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
                 // your head but the sensor will stay with your (global)
                 // avatar rotation and position.
                 // Position of a sensor in a child prim attached to an avatar
-                // will be still wrong. 
+                // will be still wrong.
                 ScenePresence avatar = m_CmdManager.m_ScriptEngine.World.GetScenePresence(SensePoint.ParentGroup.AttachedAvatar);
 
                 // Don't proceed if the avatar for this attachment has since been removed from the scene.
                 if (avatar == null)
                     return sensedEntities;
-
-                q = avatar.GetWorldRotation() * q;
+                fromRegionPos = avatar.AbsolutePosition;
+                q = avatar.Rotation;
             }
 
             LSL_Types.Quaternion r = new LSL_Types.Quaternion(q);
@@ -499,14 +508,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
             bool attached = (SensePoint.ParentGroup.AttachmentPoint != 0);
             Vector3 toRegionPos;
             double dis;
-            
+
             Action<ScenePresence> senseEntity = new Action<ScenePresence>(presence =>
             {
 //                m_log.DebugFormat(
 //                    "[SENSOR REPEAT]: Inspecting scene presence {0}, type {1} on sensor sweep for {2}, type {3}",
 //                    presence.Name, presence.PresenceType, ts.name, ts.type);
 
-                if ((ts.type & NPC) == 0 && (ts.type & OS_NPC) == 0 && presence.PresenceType == PresenceType.Npc)
+                if ((ts.type & NPC) == 0 && presence.PresenceType == PresenceType.Npc)
                 {
                     INPC npcData = m_npcModule.GetNPC(presence.UUID, presence.Scene);
                     if (npcData == null || !npcData.SenseAsAgent)
@@ -537,16 +546,25 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
                     }
                 }
 
-                if (presence.IsDeleted || presence.IsChildAgent || presence.GodLevel > 0.0)
+                if (presence.IsDeleted || presence.IsChildAgent || presence.IsViewerUIGod)
                     return;
-                
+
                 // if the object the script is in is attached and the avatar is the owner
                 // then this one is not wanted
                 if (attached && presence.UUID == SensePoint.OwnerID)
                     return;
 
                 toRegionPos = presence.AbsolutePosition;
-                dis = Math.Abs(Util.GetDistanceTo(toRegionPos, fromRegionPos));
+                dis = Util.GetDistanceTo(toRegionPos, fromRegionPos);
+                if (presence.IsSatOnObject && presence.ParentPart != null &&
+                    presence.ParentPart.ParentGroup != null &&
+                    presence.ParentPart.ParentGroup.RootPart != null)
+                {
+                    Vector3 rpos = presence.ParentPart.ParentGroup.RootPart.AbsolutePosition;
+                    double dis2 = Util.GetDistanceTo(rpos, fromRegionPos);
+                    if (dis > dis2)
+                        dis = dis2;
+                }
 
                 // Disabled for now since all osNpc* methods check for appropriate ownership permission.
                 // Perhaps could be re-enabled as an NPC setting at some point since being able to make NPCs not
@@ -688,7 +706,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
                     DateTime.Now.ToUniversalTime().AddSeconds(ts.interval);
 
                 AddSenseRepeater(ts);
-                
+
                 idx += 6;
             }
         }
@@ -704,6 +722,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
             }
 
             return retList;
-        }           
+        }
     }
 }

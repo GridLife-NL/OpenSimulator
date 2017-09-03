@@ -27,6 +27,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Timers;
 using log4net;
 using Mono.Addins;
 using Nini.Config;
@@ -47,15 +48,15 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
         /// <value>
         /// Is this module enabled?
         /// </value>
-        private bool m_enabled = false;
-        
-        private readonly List<Scene> m_scenes = new List<Scene>();
+        protected bool m_enabled = false;
+
+        protected readonly List<Scene> m_scenes = new List<Scene>();
 
         #region Region Module interface
 
-        private IMessageTransferModule m_TransferModule = null;
+        protected IMessageTransferModule m_TransferModule = null;
 
-        public void Initialise(IConfigSource config)
+        public virtual void Initialise(IConfigSource config)
         {
             if (config.Configs["Messaging"] != null)
             {
@@ -64,11 +65,11 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                         "InstantMessageModule")
                     return;
             }
-            
+
             m_enabled = true;
         }
 
-        public void AddRegion(Scene scene)
+        public virtual void AddRegion(Scene scene)
         {
             if (!m_enabled)
                 return;
@@ -84,7 +85,7 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             }
         }
 
-        public void RegionLoaded(Scene scene)
+        public virtual void RegionLoaded(Scene scene)
         {
             if (!m_enabled)
                 return;
@@ -106,7 +107,7 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             }
         }
 
-        public void RemoveRegion(Scene scene)
+        public virtual void RemoveRegion(Scene scene)
         {
             if (!m_enabled)
                 return;
@@ -117,7 +118,7 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             }
         }
 
-        void OnClientConnect(IClientCore client)
+        protected virtual void OnClientConnect(IClientCore client)
         {
             IClientIM clientIM;
             if (client.TryGet(out clientIM))
@@ -126,27 +127,33 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             }
         }
 
-        public void PostInitialise()
+        public virtual void PostInitialise()
         {
         }
 
-        public void Close()
+        public virtual void Close()
         {
         }
 
-        public string Name
+        public virtual string Name
         {
             get { return "InstantMessageModule"; }
         }
 
-        public Type ReplaceableInterface
+        public virtual Type ReplaceableInterface
         {
             get { return null; }
         }
 
         #endregion
-
-        public void OnInstantMessage(IClientAPI client, GridInstantMessage im)
+/*
+        public virtual void OnViewerInstantMessage(IClientAPI client, GridInstantMessage im)
+        {
+            im.fromAgentName = client.FirstName + " " + client.LastName;
+            OnInstantMessage(client, im);
+        }
+*/
+        public virtual void OnInstantMessage(IClientAPI client, GridInstantMessage im)
         {
             byte dialog = im.dialog;
 
@@ -159,10 +166,34 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                 return;
             }
 
+            //DateTime dt = DateTime.UtcNow;
+
+            // Ticks from UtcNow, but make it look like local. Evil, huh?
+            //dt = DateTime.SpecifyKind(dt, DateTimeKind.Local);
+
+            //try
+            //{
+            //    // Convert that to the PST timezone
+            //    TimeZoneInfo timeZoneInfo = TimeZoneInfo.FindSystemTimeZoneById("America/Los_Angeles");
+            //    dt = TimeZoneInfo.ConvertTime(dt, timeZoneInfo);
+            //}
+            //catch
+            //{
+            //    //m_log.Info("[OFFLINE MESSAGING]: No PST timezone found on this machine. Saving with local timestamp.");
+            //}
+
+            //// And make it look local again to fool the unix time util
+            //dt = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+
+            // If client is null, this message comes from storage and IS offline
+            if (client != null)
+                im.offline = 0;
+
+            if (im.offline == 0)
+                im.timestamp = (uint)Util.UnixTimeSinceEpoch();
+
             if (m_TransferModule != null)
             {
-                if (client != null)
-                    im.fromAgentName = client.FirstName + " " + client.LastName;
                 m_TransferModule.SendInstantMessage(im,
                     delegate(bool success)
                     {
@@ -193,7 +224,7 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
         ///
         /// </summary>
         /// <param name="msg"></param>
-        private void OnGridInstantMessage(GridInstantMessage msg)
+        protected virtual void OnGridInstantMessage(GridInstantMessage msg)
         {
             // Just call the Text IM handler above
             // This event won't be raised unless we have that agent,

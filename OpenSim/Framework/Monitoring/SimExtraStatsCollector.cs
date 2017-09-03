@@ -34,6 +34,7 @@ using OpenMetaverse;
 using OpenMetaverse.StructuredData;
 using OpenSim.Framework.Monitoring.Interfaces;
 
+
 namespace OpenSim.Framework.Monitoring
 {
     /// <summary>
@@ -71,6 +72,11 @@ namespace OpenSim.Framework.Monitoring
         private volatile float pendingDownloads;
         private volatile float pendingUploads;
         private volatile float activeScripts;
+        private volatile float spareTime;
+        private volatile float sleepTime;
+        private volatile float physicsStep;
+
+
         private volatile float scriptLinesPerSecond;
         private volatile float m_frameDilation;
         private volatile float m_usersLoggingIn;
@@ -84,17 +90,17 @@ namespace OpenSim.Framework.Monitoring
 //        /// haven't yet been implemented...
 //        /// </summary>
 //        public long AssetsInCache { get { return assetsInCache; } }
-//        
+//
 //        /// <value>
 //        /// Currently unused
 //        /// </value>
 //        public long TexturesInCache { get { return texturesInCache; } }
-//        
+//
 //        /// <value>
 //        /// Currently misleading since we can't currently subtract removed asset memory usage without a performance hit
 //        /// </value>
 //        public long AssetCacheMemoryUsage { get { return assetCacheMemoryUsage; } }
-//        
+//
 //        /// <value>
 //        /// Currently unused
 //        /// </value>
@@ -121,7 +127,7 @@ namespace OpenSim.Framework.Monitoring
         public float PendingUploads { get { return pendingUploads; } }
         public float ActiveScripts { get { return activeScripts; } }
         public float ScriptLinesPerSecond { get { return scriptLinesPerSecond; } }
-        
+
 //        /// <summary>
 //        /// This is the time it took for the last asset request made in response to a cache miss.
 //        /// </summary>
@@ -171,7 +177,7 @@ namespace OpenSim.Framework.Monitoring
 //            assetsInCache++;
 //            //assetCacheMemoryUsage += asset.Data.Length;
 //        }
-//        
+//
 //        public void RemoveAsset(UUID uuid)
 //        {
 //            assetsInCache--;
@@ -198,7 +204,7 @@ namespace OpenSim.Framework.Monitoring
 //            texturesInCache = 0;
 //            textureCacheMemoryUsage = 0;
 //        }
-//        
+//
 //        public void AddAssetRequestTimeAfterCacheMiss(TimeSpan ts)
 //        {
 //            assetRequestTimeAfterCacheMiss = ts;
@@ -253,7 +259,7 @@ namespace OpenSim.Framework.Monitoring
         /// <param name="pack"></param>
         public void ReceiveClassicSimStatsPacket(SimStats stats)
         {
-            // FIXME: SimStats shouldn't allow an arbitrary stat packing order (which is inherited from the original
+             // FIXME: SimStats shouldn't allow an arbitrary stat packing order (which is inherited from the original
             // SimStatsPacket that was being used).
 
             // For an unknown reason the original designers decided not to
@@ -270,8 +276,8 @@ namespace OpenSim.Framework.Monitoring
             totalFrameTime          = stats.StatsBlock[8].StatValue;
             netFrameTime            = stats.StatsBlock[9].StatValue;
             physicsFrameTime        = stats.StatsBlock[10].StatValue;
-            otherFrameTime          = stats.StatsBlock[11].StatValue;
-            imageFrameTime          = stats.StatsBlock[12].StatValue;
+            imageFrameTime          = stats.StatsBlock[11].StatValue;
+            otherFrameTime          = stats.StatsBlock[12].StatValue;
             inPacketsPerSecond      = stats.StatsBlock[13].StatValue;
             outPacketsPerSecond     = stats.StatsBlock[14].StatValue;
             unackedBytes            = stats.StatsBlock[15].StatValue;
@@ -279,12 +285,16 @@ namespace OpenSim.Framework.Monitoring
             pendingDownloads        = stats.StatsBlock[17].StatValue;
             pendingUploads          = stats.StatsBlock[18].StatValue;
             activeScripts           = stats.StatsBlock[19].StatValue;
-            scriptLinesPerSecond    = stats.StatsBlock[20].StatValue;
-            m_frameDilation         = stats.StatsBlock[22].StatValue;
-            m_usersLoggingIn        = stats.StatsBlock[23].StatValue;
-            m_totalGeoPrims         = stats.StatsBlock[24].StatValue;
-            m_totalMeshes           = stats.StatsBlock[25].StatValue;
-            m_inUseThreads          = stats.StatsBlock[26].StatValue;
+            sleepTime               = stats.StatsBlock[20].StatValue;
+            spareTime               = stats.StatsBlock[21].StatValue;
+            physicsStep             = stats.StatsBlock[22].StatValue;
+
+            scriptLinesPerSecond    = stats.ExtraStatsBlock[0].StatValue;
+            m_frameDilation         = stats.ExtraStatsBlock[1].StatValue;
+            m_usersLoggingIn        = stats.ExtraStatsBlock[2].StatValue;
+            m_totalGeoPrims         = stats.ExtraStatsBlock[3].StatValue;
+            m_totalMeshes           = stats.ExtraStatsBlock[4].StatValue;
+            m_inUseThreads          = stats.ExtraStatsBlock[5].StatValue;
         }
 
         /// <summary>
@@ -296,7 +306,7 @@ namespace OpenSim.Framework.Monitoring
             StringBuilder sb = new StringBuilder(Environment.NewLine);
 //            sb.Append("ASSET STATISTICS");
 //            sb.Append(Environment.NewLine);
-                        
+
             /*
             sb.Append(
                 string.Format(
@@ -332,7 +342,7 @@ Asset service request failures: {3}" + Environment.NewLine,
             List<Stat> stats = StatsManager.GetStatsFromEachContainer("clientstack", "ClientLogoutsDueToNoReceives");
 
             sb.AppendFormat(
-                "Client logouts due to no data receive timeout: {0}\n\n", 
+                "Client logouts due to no data receive timeout: {0}\n\n",
                 stats != null ? stats.Sum(s => s.Value).ToString() : "unknown");
 
 //            sb.Append(Environment.NewLine);
@@ -433,10 +443,10 @@ Asset service request failures: {3}" + Environment.NewLine,
             foreach (ProcessThread currentThread in
                 Process.GetCurrentProcess().Threads)
             {
-                // A known issue with the current process .Threads property is 
-                // that it can return null threads, thus don't count those as 
+                // A known issue with the current process .Threads property is
+                // that it can return null threads, thus don't count those as
                 // running threads and prevent the program function from failing
-                if (currentThread != null && 
+                if (currentThread != null &&
                     currentThread.ThreadState == ThreadState.Running)
                 {
                     numberThreadsRunning++;
@@ -495,7 +505,7 @@ Asset service request failures: {3}" + Environment.NewLine,
                 "{0:0.##}", numberThreadsRunning));
             args["ProcMem"] = OSD.FromString(String.Format("{0:#,###,###.##}",
                 memUsage));
-            
+
             return args;
         }
     }
@@ -521,12 +531,12 @@ Asset service request failures: {3}" + Environment.NewLine,
         {
             return m_statsProvider.GetStats();
         }
-        
+
         public string XReport(string uptime, string version)
         {
             return "";
         }
-        
+
         public OSDMap OReport(string uptime, string version)
         {
             OSDMap ret = new OSDMap();

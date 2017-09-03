@@ -58,11 +58,13 @@ namespace OpenSim.Region.ClientStack.Linden
     {
 //        private static readonly ILog m_log =
 //            LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        
+
         private Scene m_scene;
         private IEventQueue m_eventQueue;
         private Commands m_commands = new Commands();
         public ICommands Commands { get { return m_commands; } }
+
+        public event ConsoleMessage OnConsoleMessage;
 
         public void Initialise(IConfigSource source)
         {
@@ -102,7 +104,7 @@ namespace OpenSim.Region.ClientStack.Linden
 
         public void RegisterCaps(UUID agentID, Caps caps)
         {
-            if (!m_scene.RegionInfo.EstateSettings.IsEstateManagerOrOwner(agentID))
+            if (!m_scene.RegionInfo.EstateSettings.IsEstateManagerOrOwner(agentID) && !m_scene.Permissions.IsGod(agentID))
                 return;
 
             UUID capID = UUID.Random();
@@ -118,6 +120,11 @@ namespace OpenSim.Region.ClientStack.Linden
             OSD osd = OSD.FromString(message);
 
             m_eventQueue.Enqueue(EventQueueHelper.BuildEvent("SimConsoleResponse", osd), agentID);
+
+            ConsoleMessage handlerConsoleMessage = OnConsoleMessage;
+
+            if (handlerConsoleMessage != null)
+                handlerConsoleMessage( agentID, message);
         }
 
         public bool RunCommand(string command, UUID invokerID)
@@ -148,7 +155,7 @@ namespace OpenSim.Region.ClientStack.Linden
 
             SendConsoleOutput(agentID, reply);
         }
-        
+
         public void AddCommand(string module, bool shared, string command, string help, string longhelp, CommandDelegate fn)
         {
             m_commands.AddCommand(module, shared, command, help, longhelp, fn);
@@ -178,8 +185,9 @@ namespace OpenSim.Region.ClientStack.Linden
 
         protected override byte[] ProcessRequest(string path, Stream request, IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
         {
-            StreamReader reader = new StreamReader(request);
-            string message = reader.ReadToEnd();
+            string message;
+            using(StreamReader reader = new StreamReader(request))
+                message = reader.ReadToEnd();
 
             OSD osd = OSDParser.DeserializeLLSDXml(message);
 

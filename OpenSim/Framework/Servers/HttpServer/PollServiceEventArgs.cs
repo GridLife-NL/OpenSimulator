@@ -46,13 +46,15 @@ namespace OpenSim.Framework.Servers.HttpServer
         public RequestMethod Request;
         public UUID Id;
         public int TimeOutms;
-        public EventType Type;    
+        public EventType Type;
 
         public enum EventType : int
         {
-            LongPoll = 0,
+            Poll = 0,
             LslHttp = 1,
-            Inventory = 2
+            Inventory = 2,
+            Texture = 3,
+            Mesh = 4
         }
 
         public string Url { get; set; }
@@ -80,7 +82,7 @@ namespace OpenSim.Framework.Servers.HttpServer
             NoEvents = pNoEvents;
             Id = pId;
             TimeOutms = pTimeOutms;
-            Type = EventType.LongPoll;
+            Type = EventType.Poll;
         }
     }
 }

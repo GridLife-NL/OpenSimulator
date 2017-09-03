@@ -59,7 +59,7 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.UserAccounts
 
         #region ISharedRegionModule
 
-        public Type ReplaceableInterface 
+        public Type ReplaceableInterface
         {
             get { return null; }
         }
@@ -129,6 +129,7 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.UserAccounts
             // FIXME: Why do we bother setting this module and caching up if we just end up registering the inner
             // user account service?!
             scene.RegisterModuleInterface<IUserAccountService>(UserAccountService);
+            scene.RegisterModuleInterface<IUserAccountCacheModule>(m_Cache);
         }
 
         public void RemoveRegion(Scene scene)
@@ -152,7 +153,8 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.UserAccounts
         public UserAccount GetUserAccount(UUID scopeID, UUID userID)
         {
             bool inCache = false;
-            UserAccount account = m_Cache.Get(userID, out inCache);
+            UserAccount account;
+            account = m_Cache.Get(userID, out inCache);
             if (inCache)
                 return account;
 
@@ -165,7 +167,8 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.UserAccounts
         public UserAccount GetUserAccount(UUID scopeID, string firstName, string lastName)
         {
             bool inCache = false;
-            UserAccount account = m_Cache.Get(firstName + " " + lastName, out inCache);
+            UserAccount account;
+            account = m_Cache.Get(firstName + " " + lastName, out inCache);
             if (inCache)
                 return account;
 
@@ -179,6 +182,50 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.UserAccounts
         public UserAccount GetUserAccount(UUID scopeID, string Email)
         {
             return UserAccountService.GetUserAccount(scopeID, Email);
+        }
+
+        public List<UserAccount> GetUserAccounts(UUID scopeID, List<string> IDs)
+        {
+            List<UserAccount> ret = new List<UserAccount>();
+            List<string> missing = new List<string>();
+
+            // still another cache..
+            bool inCache = false;
+            UUID uuid = UUID.Zero;
+            UserAccount account;
+            foreach(string id in IDs)
+            {
+                if(UUID.TryParse(id, out uuid))
+                {
+                    account = m_Cache.Get(uuid, out inCache);
+                    if (inCache)
+                        ret.Add(account);
+                    else
+                        missing.Add(id);
+                }
+            }
+
+            if(missing.Count == 0)
+                return ret;
+
+            List<UserAccount> ext = UserAccountService.GetUserAccounts(scopeID, missing);
+            if(ext != null && ext.Count > 0)
+            {
+                foreach(UserAccount acc in ext)
+                {
+                    if(acc != null)
+                    {
+                        ret.Add(acc);
+                        m_Cache.Cache(acc.PrincipalID, acc);
+                    }
+                }
+            }
+            return ret;
+        }
+
+        public List<UserAccount> GetUserAccountsWhere(UUID scopeID, string query)
+        {
+            return null;
         }
 
         public List<UserAccount> GetUserAccounts(UUID scopeID, string query)

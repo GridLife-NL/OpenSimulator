@@ -59,7 +59,7 @@ namespace OpenSim.Region.CoreModules.World.Terrain.FileLoaders
         /// <returns>A terrain channel generated from the image.</returns>
         public virtual ITerrainChannel LoadFile(string filename)
         {
-            using (Bitmap b = new Bitmap(filename))
+            using(Bitmap b = new Bitmap(filename))
                 return LoadBitmap(b);
         }
 
@@ -111,9 +111,8 @@ namespace OpenSim.Region.CoreModules.World.Terrain.FileLoaders
         /// <param name="map">The terrain channel being saved</param>
         public virtual void SaveFile(string filename, ITerrainChannel map)
         {
-            Bitmap colours = CreateGrayscaleBitmapFromMap(map);
-
-            colours.Save(filename, ImageFormat.Png);
+            using(Bitmap colours = CreateGrayscaleBitmapFromMap(map))
+                colours.Save(filename,ImageFormat.Png);
         }
 
         /// <summary>
@@ -123,12 +122,11 @@ namespace OpenSim.Region.CoreModules.World.Terrain.FileLoaders
         /// <param name="map">The terrain channel being saved</param>
         public virtual void SaveStream(Stream stream, ITerrainChannel map)
         {
-            Bitmap colours = CreateGrayscaleBitmapFromMap(map);
-
-            colours.Save(stream, ImageFormat.Png);
+            using(Bitmap colours = CreateGrayscaleBitmapFromMap(map))
+                colours.Save(stream,ImageFormat.Png);
         }
 
-        public virtual void SaveFile(ITerrainChannel m_channel, string filename, 
+        public virtual void SaveFile(ITerrainChannel m_channel, string filename,
                                      int offsetX, int offsetY,
                                      int fileWidth, int fileHeight,
                                      int regionSizeX, int regionSizeY)
@@ -162,13 +160,13 @@ namespace OpenSim.Region.CoreModules.World.Terrain.FileLoaders
                 {
                     newBitmap = new Bitmap(fileWidth * regionSizeX, fileHeight * regionSizeY);
                 }
-    
+
                 thisBitmap = CreateGrayscaleBitmapFromMap(m_channel);
-    //            Console.WriteLine("offsetX=" + offsetX + " offsetY=" + offsetY);
+                //            Console.WriteLine("offsetX=" + offsetX + " offsetY=" + offsetY);
                 for (int x = 0; x < regionSizeX; x++)
                     for (int y = 0; y < regionSizeY; y++)
                         newBitmap.SetPixel(x + offsetX * regionSizeX, y + (fileHeight - 1 - offsetY) * regionSizeY, thisBitmap.GetPixel(x, y));
-    
+
                 Save(newBitmap, filename);
             }
             finally
@@ -213,7 +211,9 @@ namespace OpenSim.Region.CoreModules.World.Terrain.FileLoaders
         /// <returns>A System.Drawing.Bitmap containing a grayscale image</returns>
         protected static Bitmap CreateGrayscaleBitmapFromMap(ITerrainChannel map)
         {
+            //            Bitmap bmp = new Bitmap(map.Width, map.Height, PixelFormat.Format24bppRgb);
             Bitmap bmp = new Bitmap(map.Width, map.Height);
+
 
             const int pallete = 256;
 
@@ -227,59 +227,24 @@ namespace OpenSim.Region.CoreModules.World.Terrain.FileLoaders
             {
                 for (int x = 0; x < map.Width; x++)
                 {
-                    // 512 is the largest possible height before colours clamp
-                    int colorindex = (int) (Math.Max(Math.Min(1.0, map[x, y] / 128.0), 0.0) * (pallete - 1));
+                    // to change this, loading also needs change
 
-                    // Handle error conditions
-                    if (colorindex > pallete - 1 || colorindex < 0)
-                        bmp.SetPixel(x, map.Height - y - 1, Color.Red);
-                    else
-                        bmp.SetPixel(x, map.Height - y - 1, grays[colorindex]);
-                }
-            }
-            return bmp;
-        }
+                    // int colorindex = (int)map[x, y];  // one to one conversion 0 - 255m range
+                    // int colorindex = (int)map[x, y] / 2;  // 0 - 510 range
 
-        /// <summary>
-        /// Protected method, generates a coloured bitmap
-        /// image from a specified terrain channel.
-        /// </summary>
-        /// <param name="map">The terrain channel to export to bitmap</param>
-        /// <returns>A System.Drawing.Bitmap containing a coloured image</returns>
-        protected static Bitmap CreateBitmapFromMap(ITerrainChannel map)
-        {
-            int pallete;
-            Bitmap bmp;
-            Color[] colours;
+                    int colorindex = (int)map[x, y] * 2; // the original  0 - 127.5 range
 
-            using (Bitmap gradientmapLd = new Bitmap("defaultstripe.png"))
-            {
-                pallete = gradientmapLd.Height;
-    
-                bmp = new Bitmap(map.Width, map.Height);
-                colours = new Color[pallete];
-    
-                for (int i = 0; i < pallete; i++)
-                {
-                    colours[i] = gradientmapLd.GetPixel(0, i);
-                }
-            }
-
-            for (int y = 0; y < map.Height; y++)
-            {
-                for (int x = 0; x < map.Width; x++)
-                {
-                    // 512 is the largest possible height before colours clamp
-                    int colorindex = (int) (Math.Max(Math.Min(1.0, map[x, y] / 512.0), 0.0) * (pallete - 1));
-
-                    // Handle error conditions
-                    if (colorindex > pallete - 1 || colorindex < 0)
-                        bmp.SetPixel(x, map.Height - y - 1, Color.Red);
-                    else
-                        bmp.SetPixel(x, map.Height - y - 1, colours[colorindex]);
+                    // clamp it not adding the red warning
+                    if (colorindex < 0)
+                        colorindex = 0;
+                    else if (colorindex >= pallete)
+                        colorindex = pallete - 1;
+                    bmp.SetPixel(x, map.Height - y - 1, grays[colorindex]);
                 }
             }
             return bmp;
         }
     }
 }
+
+

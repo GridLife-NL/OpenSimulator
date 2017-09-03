@@ -104,9 +104,9 @@ namespace OpenSim.Server.Handlers.MapImage
         protected override byte[] ProcessRequest(string path, Stream requestData, IOSHttpRequest httpRequest, IOSHttpResponse httpResponse)
         {
 //            m_log.DebugFormat("[MAP SERVICE IMAGE HANDLER]: Received {0}", path);
-            StreamReader sr = new StreamReader(requestData);
-            string body = sr.ReadToEnd();
-            sr.Close();
+            string body;
+            using(StreamReader sr = new StreamReader(requestData))
+                body = sr.ReadToEnd();
             body = body.Trim();
 
             try
@@ -118,9 +118,13 @@ namespace OpenSim.Server.Handlers.MapImage
                     httpResponse.StatusCode = (int)OSHttpStatusCode.ClientErrorBadRequest;
                     return FailureResult("Bad request.");
                 }
-                uint x = 0, y = 0;
-                UInt32.TryParse(request["X"].ToString(), out x);
-                UInt32.TryParse(request["Y"].ToString(), out y);
+                int x = 0, y = 0;
+//                UUID scopeID = new UUID("07f8d88e-cd5e-4239-a0ed-843f75d09992");
+                UUID scopeID = UUID.Zero;
+                Int32.TryParse(request["X"].ToString(), out x);
+                Int32.TryParse(request["Y"].ToString(), out y);
+                if (request.ContainsKey("SCOPE"))
+                    UUID.TryParse(request["SCOPE"].ToString(), out scopeID);
 
                 m_log.DebugFormat("[MAP ADD SERVER CONNECTOR]: Received map data for region at {0}-{1}", x, y);
 
@@ -132,7 +136,7 @@ namespace OpenSim.Server.Handlers.MapImage
                 if (m_GridService != null)
                 {
                     System.Net.IPAddress ipAddr = GetCallerIP(httpRequest);
-                    GridRegion r = m_GridService.GetRegionByPosition(UUID.Zero, (int)Util.RegionToWorldLoc(x), (int)Util.RegionToWorldLoc(y));
+                    GridRegion r = m_GridService.GetRegionByPosition(UUID.Zero, (int)Util.RegionToWorldLoc((uint)x), (int)Util.RegionToWorldLoc((uint)y));
                     if (r != null)
                     {
                         if (r.ExternalEndPoint.Address.ToString() != ipAddr.ToString())
@@ -144,7 +148,7 @@ namespace OpenSim.Server.Handlers.MapImage
                     }
                     else
                     {
-                        m_log.WarnFormat("[MAP IMAGE HANDLER]: IP address {0} may be rogue. Region not found at coordinates {1}-{2}", 
+                        m_log.WarnFormat("[MAP IMAGE HANDLER]: IP address {0} may be rogue. Region not found at coordinates {1}-{2}",
                             ipAddr, x, y);
                         return FailureResult("Region not found at given coordinates");
                     }
@@ -153,7 +157,8 @@ namespace OpenSim.Server.Handlers.MapImage
                 byte[] data = Convert.FromBase64String(request["DATA"].ToString());
 
                 string reason = string.Empty;
-                bool result = m_MapService.AddMapTile((int)x, (int)y, data, out reason);
+
+                bool result = m_MapService.AddMapTile((int)x, (int)y, data, scopeID, out reason);
 
                 if (result)
                     return SuccessResult();
@@ -220,8 +225,8 @@ namespace OpenSim.Server.Handlers.MapImage
 
         private System.Net.IPAddress GetCallerIP(IOSHttpRequest request)
         {
-            if (!m_Proxy)
-                return request.RemoteIPEndPoint.Address;
+//            if (!m_Proxy)
+//                return request.RemoteIPEndPoint.Address;
 
             // We're behind a proxy
             string xff = "X-Forwarded-For";
@@ -231,7 +236,7 @@ namespace OpenSim.Server.Handlers.MapImage
 
             if (xffValue == null || (xffValue != null && xffValue == string.Empty))
             {
-                m_log.WarnFormat("[MAP IMAGE HANDLER]: No XFF header");
+//                m_log.WarnFormat("[MAP IMAGE HANDLER]: No XFF header");
                 return request.RemoteIPEndPoint.Address;
             }
 

@@ -55,12 +55,13 @@ namespace OpenSim.Services.LLLoginService
         public static LLFailedLoginResponse InventoryProblem;
         public static LLFailedLoginResponse DeadRegionProblem;
         public static LLFailedLoginResponse LoginBlockedProblem;
+        public static LLFailedLoginResponse UnverifiedAccountProblem;
         public static LLFailedLoginResponse AlreadyLoggedInProblem;
         public static LLFailedLoginResponse InternalError;
 
         static LLFailedLoginResponse()
         {
-            UserProblem = new LLFailedLoginResponse("key", 
+            UserProblem = new LLFailedLoginResponse("key",
                 "Could not authenticate your avatar. Please check your username and password, and check the grid if problems persist.",
                 "false");
             GridProblem = new LLFailedLoginResponse("key",
@@ -75,11 +76,14 @@ namespace OpenSim.Services.LLLoginService
             LoginBlockedProblem = new LLFailedLoginResponse("presence",
                 "Logins are currently restricted. Please try again later.",
                 "false");
+            UnverifiedAccountProblem = new LLFailedLoginResponse("presence",
+                "Your account has not yet been verified. Please check " +
+                "your email and click the provided link.",
+                "false");
             AlreadyLoggedInProblem = new LLFailedLoginResponse("presence",
                 "You appear to be already logged in. " +
-                "If this is not the case please wait for your session to timeout. " +
-                "If this takes longer than a few minutes please contact the grid owner. " +
-                "Please wait 5 minutes if you are going to connect to a region nearby to the region you were at previously.",
+                "Please wait a a minute or two and retry. " +
+                "If this takes longer than a few minutes please contact the grid owner. ",
                 "false");
             InternalError = new LLFailedLoginResponse("Internal Error", "Error generating Login Response", "false");
         }
@@ -145,6 +149,7 @@ namespace OpenSim.Services.LLLoginService
         private UUID agentID;
         private UUID sessionID;
         private UUID secureSessionID;
+        private UUID realID;
 
         // Login Flags
         private string dst;
@@ -228,8 +233,9 @@ namespace OpenSim.Services.LLLoginService
         public LLLoginResponse(UserAccount account, AgentCircuitData aCircuit, GridUserInfo pinfo,
             GridRegion destination, List<InventoryFolderBase> invSkel, FriendInfo[] friendsList, ILibraryService libService,
             string where, string startlocation, Vector3 position, Vector3 lookAt, List<InventoryItemBase> gestures, string message,
-            GridRegion home, IPEndPoint clientIP, string mapTileURL, string searchURL, string currency,
-            string DSTZone, string destinationsURL, string avatarsURL, string classifiedFee, int maxAgentGroups)
+
+            GridRegion home, IPEndPoint clientIP, string mapTileURL, string profileURL, string openIDURL, string searchURL, string currency,
+            string DSTZone, string destinationsURL, string avatarsURL, UUID realID, string classifiedFee,int maxAgentGroups)
             : this()
         {
             FillOutInventoryData(invSkel, libService);
@@ -242,6 +248,7 @@ namespace OpenSim.Services.LLLoginService
             AgentID = account.PrincipalID;
             SessionID = aCircuit.SessionID;
             SecureSessionID = aCircuit.SecureSessionID;
+            RealID = realID;
             Message = message;
             BuddList = ConvertFriendListItem(friendsList);
             StartLocation = where;
@@ -299,7 +306,7 @@ namespace OpenSim.Services.LLLoginService
                     {
                         DST = dstTimeZone.IsDaylightSavingTime(DateTime.Now) ? "Y" : "N";
                     }
-                
+
                     break;
             }
         }
@@ -383,6 +390,7 @@ namespace OpenSim.Services.LLLoginService
         private void FillOutRegionData(GridRegion destination)
         {
             IPEndPoint endPoint = destination.ExternalEndPoint;
+            if (endPoint == null) return;
             SimAddress = endPoint.Address.ToString();
             SimPort = (uint)endPoint.Port;
             RegionX = (uint)destination.RegionLocX;
@@ -408,7 +416,7 @@ namespace OpenSim.Services.LLLoginService
 //            try
 //            {
 //                // First try to fetch DST from Pacific Standard Time, because this is
-//                // the one expected by the viewer. "US/Pacific" is the string to search 
+//                // the one expected by the viewer. "US/Pacific" is the string to search
 //                // on linux and mac, and should work also on Windows (to confirm)
 //                gridTimeZone = TimeZoneInfo.FindSystemTimeZoneById("US/Pacific");
 //            }
@@ -438,7 +446,7 @@ namespace OpenSim.Services.LLLoginService
             ErrorReason = "key";
             welcomeMessage = "Welcome to OpenSim!";
             seedCapability = String.Empty;
-            home = "{'region_handle':[" 
+            home = "{'region_handle':["
                     + "r" + Util.RegionToWorldLoc(1000).ToString()
                     + ","
                     + "r" + Util.RegionToWorldLoc(1000).ToString()
@@ -473,6 +481,7 @@ namespace OpenSim.Services.LLLoginService
             SessionID = UUID.Random();
             SecureSessionID = UUID.Random();
             AgentID = UUID.Random();
+            RealID = UUID.Zero;
 
             Hashtable InitialOutfitHash = new Hashtable();
             InitialOutfitHash["folder_name"] = "Nightclub Female";
@@ -518,6 +527,7 @@ namespace OpenSim.Services.LLLoginService
                 responseData["http_port"] = (Int32)SimHttpPort;
 
                 responseData["agent_id"] = AgentID.ToString();
+                responseData["real_id"] = RealID.ToString();
                 responseData["session_id"] = SessionID.ToString();
                 responseData["secure_session_id"] = SecureSessionID.ToString();
                 responseData["circuit_code"] = CircuitCode;
@@ -582,7 +592,7 @@ namespace OpenSim.Services.LLLoginService
                     // responseData["real_currency"] = currency;
                     responseData["currency"] = currency;
                 }
-                
+
                 if (ClassifiedFee != String.Empty)
                     responseData["classified_fee"] = ClassifiedFee;
 
@@ -613,6 +623,7 @@ namespace OpenSim.Services.LLLoginService
                 map["sim_ip"] = OSD.FromString(SimAddress);
 
                 map["agent_id"] = OSD.FromUUID(AgentID);
+                map["real_id"] = OSD.FromUUID(RealID);
                 map["session_id"] = OSD.FromUUID(SessionID);
                 map["secure_session_id"] = OSD.FromUUID(SecureSessionID);
                 map["circuit_code"] = OSD.FromInteger(CircuitCode);
@@ -924,6 +935,12 @@ namespace OpenSim.Services.LLLoginService
             set { secureSessionID = value; }
         }
 
+        public UUID RealID
+        {
+            get { return realID; }
+            set { realID = value; }
+        }
+
         public Int32 CircuitCode
         {
             get { return circuitCode; }
@@ -1052,7 +1069,7 @@ namespace OpenSim.Services.LLLoginService
             get { return activeGestures; }
             set { activeGestures = value; }
         }
-                
+
         public string Home
         {
             get { return home; }

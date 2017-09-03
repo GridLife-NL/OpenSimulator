@@ -248,7 +248,7 @@ namespace OpenSim.Region.PhysicsModule.POS
         {
         }
 
-        public override void LockAngularMotion(Vector3 axis)
+        public override void LockAngularMotion(byte axislocks)
         {
         }
 
@@ -273,10 +273,10 @@ namespace OpenSim.Region.PhysicsModule.POS
             set { return; }
         }
 
-        public override bool PIDActive 
-        { 
+        public override bool PIDActive
+        {
             get { return false; }
-            set { return; } 
+            set { return; }
         }
 
         public override float PIDTau
@@ -291,6 +291,7 @@ namespace OpenSim.Region.PhysicsModule.POS
 
         public override bool PIDHoverActive
         {
+            get { return false; }
             set { return; }
         }
 
@@ -303,7 +304,7 @@ namespace OpenSim.Region.PhysicsModule.POS
         {
             set { return; }
         }
-        
+
         public override Quaternion APIDTarget
         {
             set { return; }

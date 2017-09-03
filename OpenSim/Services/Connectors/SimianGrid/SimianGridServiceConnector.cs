@@ -28,6 +28,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Net;
 using System.Reflection;
@@ -89,7 +91,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
                 m_log.Error("[SIMIAN GRID CONNECTOR]: No Server URI named in section GridService");
                 throw new Exception("Grid connector init error");
             }
-            
+
             if (!serviceUrl.EndsWith("/") && !serviceUrl.EndsWith("="))
                 serviceUrl = serviceUrl + '/';
             m_ServerURI = serviceUrl;
@@ -100,6 +102,15 @@ namespace OpenSim.Services.Connectors.SimianGrid
 
         public string RegisterRegion(UUID scopeID, GridRegion regionInfo)
         {
+            IPEndPoint ext = regionInfo.ExternalEndPoint;
+            if (ext == null) return "Region registration for " + regionInfo.RegionName + " failed: Could not resolve EndPoint";
+            // Generate and upload our map tile in PNG format to the SimianGrid AddMapTile service
+//            Scene scene;
+//            if (m_scenes.TryGetValue(regionInfo.RegionID, out scene))
+//                UploadMapTile(scene);
+//            else
+//                m_log.Warn("Registering region " + regionInfo.RegionName + " (" + regionInfo.RegionID + ") that we are not tracking");
+
             Vector3d minPosition = new Vector3d(regionInfo.RegionLocX, regionInfo.RegionLocY, 0.0);
             Vector3d maxPosition = minPosition + new Vector3d(regionInfo.RegionSizeX, regionInfo.RegionSizeY, Constants.RegionHeight);
 
@@ -108,7 +119,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
                 { "ServerURI", OSD.FromString(regionInfo.ServerURI) },
                 { "InternalAddress", OSD.FromString(regionInfo.InternalEndPoint.Address.ToString()) },
                 { "InternalPort", OSD.FromInteger(regionInfo.InternalEndPoint.Port) },
-                { "ExternalAddress", OSD.FromString(regionInfo.ExternalEndPoint.Address.ToString()) },
+                { "ExternalAddress", OSD.FromString(ext.Address.ToString()) },
                 { "ExternalPort", OSD.FromInteger(regionInfo.ExternalEndPoint.Port) },
                 { "MapTexture", OSD.FromUUID(regionInfo.TerrainImage) },
                 { "Access", OSD.FromInteger(regionInfo.Access) },
@@ -219,7 +230,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
             };
 
             // m_log.DebugFormat("[SIMIAN GRID CONNECTOR] request grid at {0}",position.ToString());
-            
+
             OSDMap response = SimianGrid.PostToService(m_ServerURI, requestArgs);
             if (response["Success"].AsBoolean())
             {
@@ -297,7 +308,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
             };
 
             //m_log.DebugFormat("[SIMIAN GRID CONNECTOR] request regions by range {0} to {1}",minPosition.ToString(),maxPosition.ToString());
-            
+
 
             OSDMap response = SimianGrid.PostToService(m_ServerURI, requestArgs);
             if (response["Success"].AsBoolean())
@@ -402,7 +413,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
                 return -1;
             }
         }
-        
+
         public Dictionary<string, object> GetExtraFeatures()
         {
             /// See SimulatorFeaturesModule - Need to get map, search and destination guide

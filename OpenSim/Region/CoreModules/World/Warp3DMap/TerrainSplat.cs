@@ -79,6 +79,7 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
         /// <remarks>Based on the algorithm described at http://opensimulator.org/wiki/Terrain_Splatting
         /// Note we create a 256x256 dimension texture even if the actual terrain is larger.
         /// </remarks>
+
         public static Bitmap Splat(ITerrainChannel terrain,
                 UUID[] textureIDs, float[] startHeights, float[] heightRanges,
                 Vector3d regionPosition, IAssetService assetService, bool textureTerrain)
@@ -129,8 +130,8 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
                             asset = assetService.Get(textureIDs[i].ToString());
                             if (asset != null)
                             {
-//                                    m_log.DebugFormat(
-//                                        "[TERRAIN SPLAT]: Got cached original JPEG2000 terrain texture {0} {1}", i, asset.ID);
+                                //                                    m_log.DebugFormat(
+                                //                                        "[TERRAIN SPLAT]: Got cached original JPEG2000 terrain texture {0} {1}", i, asset.ID);
 
                                 try { detailTexture[i] = (Bitmap)CSJ2K.J2kImage.FromBytes(asset.Data); }
                                 catch (Exception ex)
@@ -140,7 +141,7 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
                             }
 
                             if (detailTexture[i] != null)
-                            {    
+                            {
                                 // Make sure this texture is the correct size, otherwise resize
                                 if (detailTexture[i].Width != 256 || detailTexture[i].Height != 256)
                                 {
@@ -225,7 +226,7 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
                     float pctX = (float)x / 255f;
                     float pctY = (float)y / 255f;
 
-                    // Use bilinear interpolation between the four corners of start height and 
+                    // Use bilinear interpolation between the four corners of start height and
                     // height range to select the current values at this position
                     float startHeight = ImageUtils.Bilinear(
                         startHeights[0],
@@ -256,7 +257,7 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
                     float highFreq = Perlin.turbulence2(vec.X, vec.Y, 2f) * 2.25f;
                     float noise = (lowFreq + highFreq) * 2f;
 
-                    // Combine the current height, generated noise, start height, and height range parameters, then scale all of it 
+                    // Combine the current height, generated noise, start height, and height range parameters, then scale all of it
                     float layer = ((height + noise - startHeight) / heightRange) * 4f;
                     if (Single.IsNaN(layer))
                         layer = 0f;
@@ -352,7 +353,6 @@ namespace OpenSim.Region.CoreModules.World.Warp3DMap
             b.Dispose();
             return result;
         }
-
         public static Bitmap SplatSimple(float[] heightmap)
         {
             const float BASE_HSV_H = 93f / 360f;

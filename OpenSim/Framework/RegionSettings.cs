@@ -91,7 +91,7 @@ namespace OpenSim.Framework
             string[] parts = str.Split(',');
             if (parts.Length != 3)
                 throw new ArgumentException("Invalid string: " + str);
-            
+
             SpawnPoint sp = new SpawnPoint();
             sp.Yaw = float.Parse(parts[0]);
             sp.Pitch = float.Parse(parts[1]);
@@ -105,7 +105,7 @@ namespace OpenSim.Framework
         public delegate void SaveDelegate(RegionSettings rs);
 
         public event SaveDelegate OnSave;
-        
+
         /// <value>
         /// These appear to be terrain textures that are shipped with the client.
         /// </value>
@@ -454,24 +454,24 @@ namespace OpenSim.Framework
             get { return m_LoadedCreationDateTime; }
             set { m_LoadedCreationDateTime = value; }
         }
-        
+
         public String LoadedCreationDate
         {
-            get 
-            { 
+            get
+            {
                 TimeSpan ts = new TimeSpan(0, 0, LoadedCreationDateTime);
                 DateTime stamp = new DateTime(1970, 1, 1) + ts;
-                return stamp.ToLongDateString(); 
+                return stamp.ToLongDateString();
             }
         }
 
         public String LoadedCreationTime
         {
-            get 
-            { 
+            get
+            {
                 TimeSpan ts = new TimeSpan(0, 0, LoadedCreationDateTime);
                 DateTime stamp = new DateTime(1970, 1, 1) + ts;
-                return stamp.ToLongTimeString(); 
+                return stamp.ToLongTimeString();
             }
         }
 
@@ -480,6 +480,28 @@ namespace OpenSim.Framework
         {
             get { return m_LoadedCreationID; }
             set { m_LoadedCreationID = value; }
+        }
+
+        private bool m_GodBlockSearch = false;
+        public bool GodBlockSearch
+        {
+            get { return m_GodBlockSearch; }
+            set { m_GodBlockSearch = value; }
+        }
+
+        private bool m_Casino = false;
+        public bool Casino
+        {
+            get { return m_Casino; }
+            set { m_Casino = value; }
+        }
+
+        // Telehub support
+        private bool m_TelehubEnabled = false;
+        public bool HasTelehub
+        {
+            get { return m_TelehubEnabled; }
+            set { m_TelehubEnabled = value; }
         }
 
         /// <summary>

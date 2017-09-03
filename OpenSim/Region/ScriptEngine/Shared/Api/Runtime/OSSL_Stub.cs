@@ -153,6 +153,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_OSSL_Functions.osSetDynamicTextureData(dynamicID, contentType, data, extraParams, timer);
         }
 
+        public string osSetDynamicTextureDataFace(string dynamicID, string contentType, string data, string extraParams,
+                                             int timer, int face)
+        {
+            return m_OSSL_Functions.osSetDynamicTextureDataFace(dynamicID, contentType, data, extraParams, timer, face);
+        }
+
         public string osSetDynamicTextureURLBlend(string dynamicID, string contentType, string url, string extraParams,
                                            int timer, int alpha)
         {
@@ -207,6 +213,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public int osRegionRestart(double seconds)
         {
             return m_OSSL_Functions.osRegionRestart(seconds);
+        }
+
+        public int osRegionRestart(double seconds, string msg)
+        {
+            return m_OSSL_Functions.osRegionRestart(seconds, msg);
         }
 
         public void osRegionNotice(string msg)
@@ -266,15 +277,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_OSSL_Functions.osTeleportOwner(position, lookat);
         }
 
-        // Avatar info functions
-        public string osGetAgentIP(string agent)
-        {
-            return m_OSSL_Functions.osGetAgentIP(agent);
-        }
-
         public LSL_List osGetAgents()
         {
             return m_OSSL_Functions.osGetAgents();
+        }
+
+        public string osGetAgentIP(string agent)
+        {
+            return m_OSSL_Functions.osGetAgentIP(agent);
         }
 
         // Animation Functions
@@ -350,6 +360,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_OSSL_Functions.osDrawEllipse(drawList, width, height);
         }
 
+        public string osDrawFilledEllipse(string drawList, int width, int height)
+        {
+            return m_OSSL_Functions.osDrawFilledEllipse(drawList, width, height);
+        }
+
         public string osDrawRectangle(string drawList, int width, int height)
         {
             return m_OSSL_Functions.osDrawRectangle(drawList, width, height);
@@ -368,6 +383,26 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public string osDrawFilledPolygon(string drawList, LSL_List x, LSL_List y)
         {
             return m_OSSL_Functions.osDrawFilledPolygon(drawList, x, y);
+        }
+
+        public string osDrawResetTransform(string drawList)
+        {
+            return m_OSSL_Functions.osDrawResetTransform(drawList);
+        }
+
+        public string osDrawRotationTransform(string drawList, LSL_Float x)
+        {
+            return m_OSSL_Functions.osDrawRotationTransform(drawList, x);
+        }
+
+        public string osDrawScaleTransform(string drawList, LSL_Float x, LSL_Float y)
+        {
+            return m_OSSL_Functions.osDrawScaleTransform(drawList, x, y);
+        }
+
+        public string osDrawTranslationTransform(string drawList, LSL_Float x, LSL_Float y)
+        {
+            return m_OSSL_Functions.osDrawTranslationTransform(drawList, x, y);
         }
 
         public string osSetFontSize(string drawList, int fontSize)
@@ -394,6 +429,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_OSSL_Functions.osSetPenColor(drawList, color);
         }
+
         // Deprecated
         public string osSetPenColour(string drawList, string colour)
         {
@@ -430,6 +466,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_OSSL_Functions.osGetPhysicsEngineType();
         }
 
+        public string osGetPhysicsEngineName()
+        {
+            return m_OSSL_Functions.osGetPhysicsEngineName();
+        }
+
         public string osGetSimulatorVersion()
         {
            return m_OSSL_Functions.osGetSimulatorVersion();
@@ -439,7 +480,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_OSSL_Functions.osParseJSON(JSON);
         }
-        
+
         public Object osParseJSONNew(string JSON)
         {
             return m_OSSL_Functions.osParseJSONNew(JSON);
@@ -529,7 +570,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_OSSL_Functions.osReplaceString(src,pattern,replace,count,start);
         }
-        
+
 
         // Information about data loaded into the region
         public string osLoadedCreationDate()
@@ -565,6 +606,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public void osForceBreakAllLinks()
         {
             m_OSSL_Functions.osForceBreakAllLinks();
+        }
+
+        public void osDie(LSL_Key objectUUID)
+        {
+            m_OSSL_Functions.osDie(objectUUID);
         }
 
         public LSL_Integer osIsNpc(LSL_Key npc)
@@ -625,6 +671,16 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public void osNpcStopMoveToTarget(LSL_Key npc)
         {
             m_OSSL_Functions.osNpcStopMoveToTarget(npc);
+        }
+
+        public void osNpcSetProfileAbout(LSL_Key npc, string about)
+        {
+            m_OSSL_Functions.osNpcSetProfileAbout(npc, about);
+        }
+
+        public void osNpcSetProfileImage(LSL_Key npc, string image)
+        {
+            m_OSSL_Functions.osNpcSetProfileImage(npc, image);
         }
 
         public void osNpcSay(key npc, string message)
@@ -744,14 +800,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
                 if (Position.y > ((int)Constants.RegionSize - 1))
                     Position.y = ((int)Constants.RegionSize - 1);
                  */
-                if (Position.z > Constants.RegionHeight)
-                    Position.z = Constants.RegionHeight;
                 if (Position.x < 0)
                     Position.x = 0;
                 if (Position.y < 0)
                     Position.y = 0;
                 if (Position.z < 0)
                     Position.z = 0;
+                if (Position.z > Constants.RegionHeight)
+                    Position.z = Constants.RegionHeight;
                 prim.OSSL.llSetPos(Position);
             }
 
@@ -889,7 +945,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_OSSL_Functions.osGetRegionMapTexture(regionName);
         }
-        
+
         public LSL_List osGetRegionStats()
         {
             return m_OSSL_Functions.osGetRegionStats();
@@ -909,12 +965,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_OSSL_Functions.osGetSimulatorMemory();
         }
-        
+
         public void osKickAvatar(string FirstName,string SurName,string alert)
         {
             m_OSSL_Functions.osKickAvatar(FirstName, SurName, alert);
         }
-        
+
         public void osSetSpeed(string UUID, LSL_Float SpeedModifier)
         {
             m_OSSL_Functions.osSetSpeed(UUID, SpeedModifier);
@@ -929,10 +985,25 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             m_OSSL_Functions.osCauseDamage(avatar, damage);
         }
-        
+
         public void osCauseHealing(string avatar, double healing)
         {
             m_OSSL_Functions.osCauseHealing(avatar, healing);
+        }
+
+        public void osSetHealth(string avatar, double health)
+        {
+            m_OSSL_Functions.osSetHealth(avatar, health);
+        }
+
+        public void osSetHealRate(string avatar, double health)
+        {
+            m_OSSL_Functions.osSetHealRate(avatar, health);
+        }
+
+        public LSL_Float osGetHealRate(string avatar)
+        {
+            return m_OSSL_Functions.osGetHealRate(avatar);
         }
 
         public void osForceOtherSit(string avatar)
@@ -944,12 +1015,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             m_OSSL_Functions.osForceOtherSit(avatar, target);
         }
-        
+
         public LSL_List osGetPrimitiveParams(LSL_Key prim, LSL_List rules)
         {
             return m_OSSL_Functions.osGetPrimitiveParams(prim, rules);
         }
-        
+
         public void osSetPrimitiveParams(LSL_Key prim, LSL_List rules)
         {
             m_OSSL_Functions.osSetPrimitiveParams(prim, rules);
@@ -968,6 +1039,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public LSL_List osGetAvatarList()
         {
             return m_OSSL_Functions.osGetAvatarList();
+        }
+
+        public LSL_List osGetNPCList()
+        {
+            return m_OSSL_Functions.osGetNPCList();
         }
 
         public LSL_String osUnixTimeToTimestamp(long time)
@@ -1053,6 +1129,61 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public LSL_Integer osRegexIsMatch(string input, string pattern)
         {
             return m_OSSL_Functions.osRegexIsMatch(input, pattern);
+        }
+
+        public LSL_String osRequestURL(LSL_List options)
+        {
+            return m_OSSL_Functions.osRequestURL(options);
+        }
+
+        public LSL_String osRequestSecureURL(LSL_List options)
+        {
+            return m_OSSL_Functions.osRequestSecureURL(options);
+        }
+
+        public void osCollisionSound(string impact_sound, double impact_volume)
+        {
+            m_OSSL_Functions.osCollisionSound(impact_sound, impact_volume);
+        }
+
+        public void osVolumeDetect(int detect)
+        {
+            m_OSSL_Functions.osVolumeDetect(detect);
+        }
+
+        public LSL_List osGetInertiaData()
+        {
+            return m_OSSL_Functions.osGetInertiaData();
+        }
+
+        public void osSetInertiaAsBox(LSL_Float mass, vector boxSize, vector centerOfMass, rotation rot)
+        {
+            m_OSSL_Functions.osSetInertiaAsBox(mass, boxSize, centerOfMass, rot);
+        }
+
+        public void osSetInertiaAsSphere(LSL_Float mass,  LSL_Float radius, vector centerOfMass)
+        {
+            m_OSSL_Functions.osSetInertiaAsSphere(mass, radius, centerOfMass);
+        }
+
+        public void osSetInertiaAsCylinder(LSL_Float mass,  LSL_Float radius, LSL_Float lenght, vector centerOfMass,rotation lslrot)
+        {
+            m_OSSL_Functions.osSetInertiaAsCylinder( mass, radius, lenght, centerOfMass, lslrot);
+        }
+
+        public void osClearInertia()
+        {
+            m_OSSL_Functions.osClearInertia();
+        }
+
+        public LSL_Integer osTeleportObject(LSL_Key objectUUID, vector targetPos, rotation targetrotation, LSL_Integer flags)
+        {
+            return m_OSSL_Functions.osTeleportObject(objectUUID, targetPos, targetrotation, flags);
+        }
+
+        public LSL_Integer osGetLinkNumber(LSL_String name)
+        {
+            return m_OSSL_Functions.osGetLinkNumber(name);
         }
     }
 }

@@ -32,7 +32,7 @@ namespace OpenSim.Framework
 {
     /// <summary>
     /// Enapsulate statistics for a simulator/scene.
-    /// 
+    ///
     /// TODO: This looks very much like the OpenMetaverse SimStatsPacket.  It should be much more generic stats
     /// storage.
     /// </summary>
@@ -49,25 +49,31 @@ namespace OpenSim.Framework
             get { return m_regionY; }
         }
         private uint m_regionY;
-        
+
         public SimStatsPacket.RegionBlock RegionBlock
         {
             get { return m_regionBlock; }
         }
         private SimStatsPacket.RegionBlock m_regionBlock;
-        
+
         public SimStatsPacket.StatBlock[] StatsBlock
         {
             get { return m_statsBlock; }
         }
         private SimStatsPacket.StatBlock[] m_statsBlock;
-        
+
+        public SimStatsPacket.StatBlock[] ExtraStatsBlock
+        {
+            get { return m_extraStatsBlock; }
+        }
+        private SimStatsPacket.StatBlock[] m_extraStatsBlock;
+
         public uint RegionFlags
         {
             get { return m_regionFlags; }
         }
         private uint m_regionFlags;
-            
+
         public uint ObjectCapacity
         {
             get { return m_objectCapacity; }
@@ -79,10 +85,11 @@ namespace OpenSim.Framework
             get { return regionUUID; }
         }
         private UUID regionUUID;
-                
+
         public SimStats(
-            uint regionX, uint regionY, uint regionFlags, uint objectCapacity, 
-            SimStatsPacket.RegionBlock regionBlock, SimStatsPacket.StatBlock[] statsBlock, UUID pRUUID)
+            uint regionX, uint regionY, uint regionFlags, uint objectCapacity,
+            SimStatsPacket.RegionBlock regionBlock, SimStatsPacket.StatBlock[] statsBlock,
+            SimStatsPacket.StatBlock[] ExtraStatsBlock, UUID pRUUID)
         {
             regionUUID = pRUUID;
             m_regionX = regionX;
@@ -91,6 +98,7 @@ namespace OpenSim.Framework
             m_objectCapacity = objectCapacity;
             m_regionBlock = regionBlock;
             m_statsBlock = statsBlock;
+            m_extraStatsBlock = ExtraStatsBlock;
         }
     }
 }

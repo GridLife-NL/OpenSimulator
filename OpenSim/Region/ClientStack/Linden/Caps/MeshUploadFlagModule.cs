@@ -129,19 +129,19 @@ namespace OpenSim.Region.ClientStack.Linden
 //            m_log.DebugFormat("[MESH UPLOAD FLAG MODULE]: MeshUploadFlag request");
 
             OSDMap data = new OSDMap();
-    	    ScenePresence sp = m_scene.GetScenePresence(agentID);
-    	    data["username"] = sp.Firstname + "." + sp.Lastname;
-    	    data["display_name_next_update"] = new OSDDate(DateTime.Now);
-    	    data["legacy_first_name"] = sp.Firstname;
-    	    data["mesh_upload_status"] = "valid";
-    	    data["display_name"] = sp.Firstname + " " + sp.Lastname;
-    	    data["legacy_last_name"] = sp.Lastname;
-    	    data["id"] = agentID;
-    	    data["is_display_name_default"] = true;
+//    	    ScenePresence sp = m_scene.GetScenePresence(m_agentID);
+//    	    data["username"] = sp.Firstname + "." + sp.Lastname;
+//    	    data["display_name_next_update"] = new OSDDate(DateTime.Now);
+//    	    data["legacy_first_name"] = sp.Firstname;
+            data["mesh_upload_status"] = "valid";
+//    	    data["display_name"] = sp.Firstname + " " + sp.Lastname;
+//    	    data["legacy_last_name"] = sp.Lastname;
+//    	    data["id"] = m_agentID;
+//    	    data["is_display_name_default"] = true;
 
             //Send back data
             Hashtable responsedata = new Hashtable();
-            responsedata["int_response_code"] = 200; 
+            responsedata["int_response_code"] = 200;
             responsedata["content_type"] = "text/plain";
             responsedata["keepalive"] = false;
             responsedata["str_response_string"] = OSDParser.SerializeLLSDXmlString(data);

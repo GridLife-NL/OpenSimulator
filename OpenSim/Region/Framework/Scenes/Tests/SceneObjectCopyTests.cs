@@ -42,6 +42,7 @@ using OpenSim.Tests.Common;
 
 namespace OpenSim.Region.Framework.Scenes.Tests
 {
+    /*
     /// <summary>
     /// Test copying of scene objects.
     /// </summary>
@@ -86,7 +87,7 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Turn off the timer on the async sog deleter - we'll crank it by hand for this test.
             AsyncSceneObjectGroupDeleter sogd = scene.SceneObjectGroupDeleter;
-            sogd.Enabled = false;            
+            sogd.Enabled = false;
 
             SceneObjectGroup so = SceneHelpers.AddSceneObject(scene, "so1", ua.PrincipalID);
             uint soLocalId = so.LocalId;
@@ -118,11 +119,11 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Check that object is still there.
             SceneObjectPart retrievedPart2 = scene.GetSceneObjectPart(so.LocalId);
-            Assert.That(retrievedPart2, Is.Not.Null);              
+            Assert.That(retrievedPart2, Is.Not.Null);
             Assert.That(client.ReceivedKills.Count, Is.EqualTo(0));
 
             // Check that we have a copy in inventory
-            InventoryItemBase item 
+            InventoryItemBase item
                 = UserInventoryHelpers.GetInventoryItem(scene.InventoryService, ua.PrincipalID, "Lost And Found/so1");
             Assert.That(item, Is.Not.Null);
         }
@@ -144,7 +145,7 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Turn off the timer on the async sog deleter - we'll crank it by hand for this test.
             AsyncSceneObjectGroupDeleter sogd = scene.SceneObjectGroupDeleter;
-            sogd.Enabled = false;            
+            sogd.Enabled = false;
 
             SceneObjectGroup so = SceneHelpers.AddSceneObject(scene, "so1", ua.PrincipalID);
             uint soLocalId = so.LocalId;
@@ -167,11 +168,11 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Check that object is still there.
             SceneObjectPart retrievedPart2 = scene.GetSceneObjectPart(so.LocalId);
-            Assert.That(retrievedPart2, Is.Not.Null);              
+            Assert.That(retrievedPart2, Is.Not.Null);
             Assert.That(client.ReceivedKills.Count, Is.EqualTo(0));
 
             // Check that we do not have a copy in inventory
-            InventoryItemBase item 
+            InventoryItemBase item
                 = UserInventoryHelpers.GetInventoryItem(scene.InventoryService, ua.PrincipalID, "Lost And Found/so1");
             Assert.That(item, Is.Null);
         }
@@ -193,7 +194,7 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Turn off the timer on the async sog deleter - we'll crank it by hand for this test.
             AsyncSceneObjectGroupDeleter sogd = scene.SceneObjectGroupDeleter;
-            sogd.Enabled = false;            
+            sogd.Enabled = false;
 
             SceneObjectGroup so = SceneHelpers.AddSceneObject(scene, "so1", TestHelpers.ParseTail(0x2));
             uint soLocalId = so.LocalId;
@@ -218,11 +219,11 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Check that object is still there.
             SceneObjectPart retrievedPart2 = scene.GetSceneObjectPart(so.LocalId);
-            Assert.That(retrievedPart2, Is.Not.Null);              
+            Assert.That(retrievedPart2, Is.Not.Null);
             Assert.That(client.ReceivedKills.Count, Is.EqualTo(0));
 
             // Check that we have a copy in inventory
-            InventoryItemBase item 
+            InventoryItemBase item
                 = UserInventoryHelpers.GetInventoryItem(scene.InventoryService, ua.PrincipalID, "Objects/so1");
             Assert.That(item, Is.Not.Null);
         }
@@ -244,7 +245,7 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             // Turn off the timer on the async sog deleter - we'll crank it by hand for this test.
             AsyncSceneObjectGroupDeleter sogd = scene.SceneObjectGroupDeleter;
-            sogd.Enabled = false;            
+            sogd.Enabled = false;
 
             SceneObjectGroup so = SceneHelpers.AddSceneObject(scene, "so1", TestHelpers.ParseTail(0x2));
             uint soLocalId = so.LocalId;
@@ -271,11 +272,11 @@ namespace OpenSim.Region.Framework.Scenes.Tests
                 sogd.InventoryDeQueueAndDelete();
                 // Check that object is still there.
                 SceneObjectPart retrievedPart2 = scene.GetSceneObjectPart(so.LocalId);
-                Assert.That(retrievedPart2, Is.Not.Null);              
+                Assert.That(retrievedPart2, Is.Not.Null);
                 Assert.That(client.ReceivedKills.Count, Is.EqualTo(0));
 
                 // Check that we have a copy in inventory
-                InventoryItemBase item 
+                InventoryItemBase item
                     = UserInventoryHelpers.GetInventoryItem(scene.InventoryService, ua.PrincipalID, "Objects/so1");
                 Assert.That(item, Is.Null);
             }
@@ -302,11 +303,11 @@ namespace OpenSim.Region.Framework.Scenes.Tests
                 sogd.InventoryDeQueueAndDelete();
                 // Check that object is still there.
                 SceneObjectPart retrievedPart2 = scene.GetSceneObjectPart(so.LocalId);
-                Assert.That(retrievedPart2, Is.Not.Null);              
+                Assert.That(retrievedPart2, Is.Not.Null);
                 Assert.That(client.ReceivedKills.Count, Is.EqualTo(0));
 
                 // Check that we have a copy in inventory
-                InventoryItemBase item 
+                InventoryItemBase item
                     = UserInventoryHelpers.GetInventoryItem(scene.InventoryService, ua.PrincipalID, "Objects/so1");
                 Assert.That(item, Is.Null);
             }
@@ -333,14 +334,15 @@ namespace OpenSim.Region.Framework.Scenes.Tests
                 sogd.InventoryDeQueueAndDelete();
                 // Check that object is still there.
                 SceneObjectPart retrievedPart2 = scene.GetSceneObjectPart(so.LocalId);
-                Assert.That(retrievedPart2, Is.Not.Null);              
+                Assert.That(retrievedPart2, Is.Not.Null);
                 Assert.That(client.ReceivedKills.Count, Is.EqualTo(0));
 
                 // Check that we have a copy in inventory
-                InventoryItemBase item 
+                InventoryItemBase item
                     = UserInventoryHelpers.GetInventoryItem(scene.InventoryService, ua.PrincipalID, "Objects/so1");
                 Assert.That(item, Is.Null);
             }
         }
     }
+     */
 }

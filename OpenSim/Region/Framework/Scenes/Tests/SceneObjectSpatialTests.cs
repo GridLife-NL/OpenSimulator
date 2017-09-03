@@ -138,8 +138,7 @@ namespace OpenSim.Region.Framework.Scenes.Tests
 
             SceneObjectPart childPart = so.Parts[1];
 
-            // FIXME: Should be childPosition after rotation?
-            Assert.That(childPart.AbsolutePosition, Is.EqualTo(rootPartPosition + childOffsetPosition));
+            Assert.That(childPart.AbsolutePosition, Is.EqualTo(childPosition));
 
             Assert.That(childPart.GroupPosition, Is.EqualTo(rootPartPosition));
             Assert.That(childPart.GetWorldPosition(), Is.EqualTo(childPosition));

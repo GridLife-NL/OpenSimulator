@@ -85,6 +85,7 @@ namespace OpenSim.Region.ScriptEngine.XEngine.Tests
 
             IConfig startupConfig = configSource.AddConfig("Startup");
             startupConfig.Set("DefaultScriptEngine", "XEngine");
+            startupConfig.Set("TrustBinaries", "true");
 
             IConfig xEngineConfig = configSource.AddConfig("XEngine");
             xEngineConfig.Set("Enabled", "true");
@@ -111,10 +112,13 @@ namespace OpenSim.Region.ScriptEngine.XEngine.Tests
             SceneObjectGroup soSceneA = SceneHelpers.AddSceneObject(sceneA, 1, userId, "so1-", sceneObjectIdTail);
             soSceneA.AbsolutePosition = new Vector3(128, 10, 20);
 
+            string soSceneAName = soSceneA.Name;
+            string scriptItemSceneAName = "script1";
+
             // CREATE SCRIPT TODO
             InventoryItemBase scriptItemSceneA = new InventoryItemBase();
             //            itemTemplate.ID = itemId;
-            scriptItemSceneA.Name = "script1";
+            scriptItemSceneA.Name = scriptItemSceneAName;
             scriptItemSceneA.Folder = soSceneA.UUID;
             scriptItemSceneA.InvType = (int)InventoryType.LSL;
 
@@ -122,11 +126,11 @@ namespace OpenSim.Region.ScriptEngine.XEngine.Tests
             OSChatMessage messageReceived = null;
             sceneA.EventManager.OnChatFromWorld += (s, m) => { messageReceived = m; chatEvent.Set(); };
 
-            sceneA.RezNewScript(userId, scriptItemSceneA, 
+            sceneA.RezNewScript(userId, scriptItemSceneA,
 @"integer c = 0;
 
 default
-{    
+{
     state_entry()
     {
         llSay(0, ""Script running"");
@@ -139,7 +143,7 @@ default
 
     touch_start(integer n)
     {
-        c = c + 1; 
+        c = c + 1;
         llSay(0, (string)c);
     }
 }");
@@ -147,7 +151,7 @@ default
             chatEvent.WaitOne(60000);
 
             Assert.That(messageReceived, Is.Not.Null, "No chat message received.");
-            Assert.That(messageReceived.Message, Is.EqualTo("Script running"));           
+            Assert.That(messageReceived.Message, Is.EqualTo("Script running"));
 
             {
                 // XXX: Should not be doing this so directly.  Should call some variant of EventManager.touch() instead.
@@ -158,24 +162,31 @@ default
 
                 EventParams ep = new EventParams("touch_start", new Object[] { new LSL_Types.LSLInteger(1) }, det);
 
+                messageReceived = null;
+                chatEvent.Reset();
                 xEngineA.PostObjectEvent(soSceneA.LocalId, ep);
                 chatEvent.WaitOne(60000);
 
-                Assert.That(messageReceived.Message, Is.EqualTo("1")); 
+                Assert.That(messageReceived.Message, Is.EqualTo("1"));
             }
 
-            sceneB.EventManager.OnChatFromWorld += (s, m) => { messageReceived = m; chatEvent.Set(); };
+            AutoResetEvent chatEventB = new AutoResetEvent(false);
+            sceneB.EventManager.OnChatFromWorld += (s, m) => { messageReceived = m; chatEventB.Set(); };
 
+            messageReceived = null;
+            chatEventB.Reset();
             // Cross with a negative value
             soSceneA.AbsolutePosition = new Vector3(128, -10, 20);
 
-            chatEvent.WaitOne(60000);
-            Assert.That(messageReceived.Message, Is.EqualTo("Changed")); 
+            chatEventB.WaitOne(60000);
+            Assert.That(messageReceived, Is.Not.Null, "No Changed message received.");
+            Assert.That(messageReceived.Message, Is.Not.Null, "Changed message without content");
+            Assert.That(messageReceived.Message, Is.EqualTo("Changed"));
 
             // TEST sending event to moved prim and output
             {
-                SceneObjectGroup soSceneB = sceneB.GetSceneObjectGroup(soSceneA.Name);
-                TaskInventoryItem scriptItemSceneB = soSceneB.RootPart.Inventory.GetInventoryItem(scriptItemSceneA.Name);
+                SceneObjectGroup soSceneB = sceneB.GetSceneObjectGroup(soSceneAName);
+                TaskInventoryItem scriptItemSceneB = soSceneB.RootPart.Inventory.GetInventoryItem(scriptItemSceneAName);
 
                 // XXX: Should not be doing this so directly.  Should call some variant of EventManager.touch() instead.
                 DetectParams[] det = new DetectParams[1];
@@ -185,10 +196,13 @@ default
 
                 EventParams ep = new EventParams("touch_start", new Object[] { new LSL_Types.LSLInteger(1) }, det);
 
+                Thread.Sleep(250); // wait for other change messages to pass
+                messageReceived = null;
+                chatEventB.Reset();
                 xEngineB.PostObjectEvent(soSceneB.LocalId, ep);
-                chatEvent.WaitOne(60000);
+                chatEventB.WaitOne(60000);
 
-                Assert.That(messageReceived.Message, Is.EqualTo("2")); 
+                Assert.That(messageReceived.Message, Is.EqualTo("2"));
             }
         }
     }

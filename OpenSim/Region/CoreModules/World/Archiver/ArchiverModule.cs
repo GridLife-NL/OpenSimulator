@@ -49,24 +49,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "ArchiverModule")]
     public class ArchiverModule : INonSharedRegionModule, IRegionArchiverModule
     {
-        private static readonly ILog m_log = 
+        private static readonly ILog m_log =
             LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         public Scene Scene { get; private set; }
-        public IRegionCombinerModule RegionCombinerModule { get; private set; }
 
         /// <value>
         /// The file used to load and save an opensimulator archive if no filename has been specified
         /// </value>
         protected const string DEFAULT_OAR_BACKUP_FILENAME = "region.oar";
 
-        public string Name 
-        { 
-            get { return "RegionArchiverModule"; } 
+        public string Name
+        {
+            get { return "RegionArchiverModule"; }
         }
 
-        public Type ReplaceableInterface 
-        { 
+        public Type ReplaceableInterface
+        {
             get { return null; }
         }
 
@@ -85,7 +84,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         public void RegionLoaded(Scene scene)
         {
-            RegionCombinerModule = scene.RequestModuleInterface<IRegionCombinerModule>();
         }
 
         public void RemoveRegion(Scene scene)
@@ -110,18 +108,22 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             Vector3 displacement = new Vector3(0f, 0f, 0f);
             String defaultUser = "";
             float rotation = 0f;
-            Vector3 rotationCenter = new Vector3(Constants.RegionSize / 2f, Constants.RegionSize / 2f, 0);
-            
+            Vector3 rotationCenter = new Vector3(Scene.RegionInfo.RegionSizeX / 2f, Scene.RegionInfo.RegionSizeY / 2f, 0);
+            Vector3 boundingOrigin = new Vector3(0f, 0f, 0f);
+            Vector3 boundingSize = new Vector3(Scene.RegionInfo.RegionSizeX, Scene.RegionInfo.RegionSizeY, float.MaxValue);
+            bool debug = false;
+
             OptionSet options = new OptionSet();
-            options.Add("m|merge", delegate (string v) { mergeOar = (v != null); });
-            options.Add("s|skip-assets", delegate (string v) { skipAssets = (v != null); });
-            options.Add("force-terrain", delegate (string v) { forceTerrain = (v != null); });
-            options.Add("forceterrain", delegate (string v) { forceTerrain = (v != null); });   // downward compatibility
-            options.Add("force-parcels", delegate (string v) { forceParcels = (v != null); });
-            options.Add("forceparcels", delegate (string v) { forceParcels = (v != null); });   // downward compatibility
-            options.Add("no-objects", delegate (string v) { noObjects = (v != null); });
+            options.Add("m|merge", delegate(string v) { mergeOar = (v != null); });
+            options.Add("s|skip-assets", delegate(string v) { skipAssets = (v != null); });
+            options.Add("force-terrain", delegate(string v) { forceTerrain = (v != null); });
+            options.Add("forceterrain", delegate(string v) { forceTerrain = (v != null); });   // downward compatibility
+            options.Add("force-parcels", delegate(string v) { forceParcels = (v != null); });
+            options.Add("forceparcels", delegate(string v) { forceParcels = (v != null); });   // downward compatibility
+            options.Add("no-objects", delegate(string v) { noObjects = (v != null); });
             options.Add("default-user=", delegate(string v) { defaultUser = (v == null) ? "" : v; });
-            options.Add("displacement=", delegate (string v) {
+            options.Add("displacement=", delegate(string v)
+            {
                 try
                 {
                     displacement = v == null ? Vector3.Zero : Vector3.Parse(v);
@@ -145,12 +147,14 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     m_log.ErrorFormat("[ARCHIVER MODULE]    Must be an angle in degrees between -360 and +360: --rotation 45");
                     return;
                 }
-                // Convert to radians for internals
-                rotation = Util.Clamp<float>(rotation, -359f, 359f) / 180f * (float)Math.PI;
+                //pass this in as degrees now, convert to radians later during actual work phase
+                rotation = Util.Clamp<float>(rotation, -359f, 359f);
             });
-            options.Add("rotation-center=", delegate (string v) {
+            options.Add("rotation-center=", delegate(string v)
+            {
                 try
                 {
+                    m_log.Info("[ARCHIVER MODULE] Warning: --rotation-center no longer does anything and will be removed soon!");
                     rotationCenter = v == null ? Vector3.Zero : Vector3.Parse(v);
                 }
                 catch
@@ -160,6 +164,33 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     return;
                 }
             });
+            options.Add("bounding-origin=", delegate(string v)
+            {
+                try
+                {
+                    boundingOrigin = v == null ? Vector3.Zero : Vector3.Parse(v);
+                }
+                catch
+                {
+                    m_log.ErrorFormat("[ARCHIVER MODULE] failure parsing bounding cube origin");
+                    m_log.ErrorFormat("[ARCHIVER MODULE]    Must be represented as vector3: --bounding-origin \"<128,128,0>\"");
+                    return;
+                }
+            });
+            options.Add("bounding-size=", delegate(string v)
+            {
+                try
+                {
+                    boundingSize = v == null ? new Vector3(Scene.RegionInfo.RegionSizeX, Scene.RegionInfo.RegionSizeY, float.MaxValue) : Vector3.Parse(v);
+                }
+                catch
+                {
+                    m_log.ErrorFormat("[ARCHIVER MODULE] failure parsing bounding cube size");
+                    m_log.ErrorFormat("[ARCHIVER MODULE]    Must be represented as a positive vector3: --bounding-size \"<256,256,4096>\"");
+                    return;
+                }
+            });
+            options.Add("d|debug", delegate(string v) { debug = (v != null); });
 
             // Send a message to the region ready module
             /* bluewall* Disable this for the time being
@@ -170,9 +201,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 rready.OarLoadingAlert("load");
             }
             */
-            
+
             List<string> mainParams = options.Parse(cmdparams);
-          
+
 //            m_log.DebugFormat("MERGE OAR IS [{0}]", mergeOar);
 //
 //            foreach (string param in mainParams)
@@ -208,6 +239,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             archiveOptions.Add("displacement", displacement);
             archiveOptions.Add("rotation", rotation);
             archiveOptions.Add("rotation-center", rotationCenter);
+            archiveOptions.Add("bounding-origin", boundingOrigin);
+            archiveOptions.Add("bounding-size", boundingSize);
+            if (debug) archiveOptions.Add("debug", null);
 
             if (mainParams.Count > 2)
             {
@@ -254,7 +288,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             ArchiveRegion(path, options);
         }
-        
+
         public void ArchiveRegion(string savePath, Dictionary<string, object> options)
         {
             ArchiveRegion(savePath, Guid.Empty, options);
@@ -264,7 +298,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             m_log.InfoFormat(
                 "[ARCHIVER]: Writing archive for region {0} to {1}", Scene.RegionInfo.RegionName, savePath);
-            
+
             new ArchiveWriteRequest(Scene, savePath, requestId).ArchiveRegion(options);
         }
 
@@ -288,21 +322,20 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             Dictionary<string, object> archiveOptions = new Dictionary<string, object>();
             DearchiveRegion(loadPath, Guid.Empty, archiveOptions);
         }
-        
-        public void DearchiveRegion(string loadPath, Guid requestId, Dictionary<string,object> options)
+
+        public void DearchiveRegion(string loadPath, Guid requestId, Dictionary<string, object> options)
         {
             m_log.InfoFormat(
                 "[ARCHIVER]: Loading archive to region {0} from {1}", Scene.RegionInfo.RegionName, loadPath);
-            
+
             new ArchiveReadRequest(Scene, loadPath, requestId, options).DearchiveRegion();
         }
-        
+
         public void DearchiveRegion(Stream loadStream)
         {
             Dictionary<string, object> archiveOptions = new Dictionary<string, object>();
             DearchiveRegion(loadStream, Guid.Empty, archiveOptions);
         }
-        
         public void DearchiveRegion(Stream loadStream, Guid requestId, Dictionary<string, object> options)
         {
             new ArchiveReadRequest(Scene, loadStream, requestId, options).DearchiveRegion();

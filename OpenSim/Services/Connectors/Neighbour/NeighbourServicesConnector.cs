@@ -153,9 +153,9 @@ namespace OpenSim.Services.Connectors
             }
             catch (Exception e)
             {
-                m_log.Warn(string.Format(
-                    "[NEIGHBOUR SERVICES CONNECTOR]: Unable to send HelloNeighbour from {0} to {1} (uri {2}).  Exception {3} ",
-                    thisRegion.RegionName, region.RegionName, uri, e.Message), e);
+//                m_log.WarnFormat(
+//                    "[NEIGHBOUR SERVICE CONNCTOR]: Unable to send HelloNeighbour from {0} to {1}.  Exception {2}{3}",
+//                    thisRegion.RegionName, region.RegionName, e.Message, e.StackTrace);
 
                 return false;
             }
@@ -183,8 +183,8 @@ namespace OpenSim.Services.Connectors
                     {
                         using (StreamReader sr = new StreamReader(s))
                         {
+                            sr.ReadToEnd(); // just try to read
                             //reply = sr.ReadToEnd().Trim();
-                            sr.ReadToEnd().Trim();
                             //m_log.InfoFormat("[REST COMMS]: DoHelloNeighbourCall reply was {0} ", reply);
                         }
                     }

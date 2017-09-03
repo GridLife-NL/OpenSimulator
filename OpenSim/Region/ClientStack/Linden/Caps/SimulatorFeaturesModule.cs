@@ -50,12 +50,12 @@ namespace OpenSim.Region.ClientStack.Linden
     /// This is required for uploading Mesh.
     /// Since is accepts an open-ended response, we also send more information
     /// for viewers that care to interpret it.
-    /// 
+    ///
     /// NOTE: Part of this code was adapted from the Aurora project, specifically
     /// the normal part of the response in the capability handler.
     /// </remarks>
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "SimulatorFeaturesModule")]
-    public class SimulatorFeaturesModule : ISharedRegionModule, ISimulatorFeaturesModule
+    public class SimulatorFeaturesModule : INonSharedRegionModule, ISimulatorFeaturesModule
     {
         private static readonly ILog m_log =
             LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
@@ -82,7 +82,7 @@ namespace OpenSim.Region.ClientStack.Linden
             IConfig config = source.Configs["SimulatorFeatures"];
 
             if (config != null)
-            {  
+            {
                 //
                 // All this is obsolete since getting these features from the grid service!!
                 // Will be removed after the next release
@@ -126,10 +126,6 @@ namespace OpenSim.Region.ClientStack.Linden
             GetGridExtraFeatures(s);
         }
 
-        public void PostInitialise()
-        {
-        }
-
         public void Close() { }
 
         public string Name { get { return "SimulatorFeaturesModule"; } }
@@ -155,6 +151,7 @@ namespace OpenSim.Region.ClientStack.Linden
                 m_features["MeshRezEnabled"] = true;
                 m_features["MeshUploadEnabled"] = true;
                 m_features["MeshXferEnabled"] = true;
+
                 m_features["PhysicsMaterialsEnabled"] = true;
 
                 OSDMap typesMap = new OSDMap();
@@ -173,6 +170,10 @@ namespace OpenSim.Region.ClientStack.Linden
                 else
                     extrasMap = new OSDMap();
 
+                extrasMap["AvatarSkeleton"] = true;
+                extrasMap["AnimationSet"] = true;
+
+                // TODO: Take these out of here into their respective modules, like map-server-url
                 if (m_SearchURL != string.Empty)
                     extrasMap["search-server-url"] = m_SearchURL;
                 if (!string.IsNullOrEmpty(m_DestinationGuideURL))
@@ -250,7 +251,7 @@ namespace OpenSim.Region.ClientStack.Linden
 
             //Send back data
             Hashtable responsedata = new Hashtable();
-            responsedata["int_response_code"] = 200; 
+            responsedata["int_response_code"] = 200;
             responsedata["content_type"] = "text/plain";
             responsedata["keepalive"] = false;
 

@@ -88,7 +88,7 @@ namespace OpenSim.Tests.Common
         public event MoneyTransferRequest OnMoneyTransferRequest;
         public event ParcelBuy OnParcelBuy;
         public event Action<IClientAPI> OnConnectionClosed;
-
+        public event MoveItemsAndLeaveCopy OnMoveItemsAndLeaveCopy;
         public event ImprovedInstantMessage OnInstantMessage;
         public event ChatMessage OnChatFromClient;
         public event TextureRequest OnRequestTexture;
@@ -105,6 +105,7 @@ namespace OpenSim.Tests.Common
         public event ObjectDrop OnObjectDrop;
         public event StartAnim OnStartAnim;
         public event StopAnim OnStopAnim;
+        public event ChangeAnim OnChangeAnim;
         public event LinkObjects OnLinkObjects;
         public event DelinkObjects OnDelinkObjects;
         public event RequestMapBlocks OnRequestMapBlocks;
@@ -117,6 +118,7 @@ namespace OpenSim.Tests.Common
         public event SetAlwaysRun OnSetAlwaysRun;
 
         public event DeRezObject OnDeRezObject;
+        public event RezRestoreToWorld OnRezRestoreToWorld;
         public event Action<IClientAPI> OnRegionHandShakeReply;
         public event GenericCall1 OnRequestWearables;
         public event Action<IClientAPI, bool> OnCompleteMovementToRegion;
@@ -153,6 +155,7 @@ namespace OpenSim.Tests.Common
         public event GenericCall7 OnObjectMaterial;
         public event UpdatePrimFlags OnUpdatePrimFlags;
         public event UpdatePrimTexture OnUpdatePrimTexture;
+        public event ClientChangeObject onClientChangeObject;
         public event UpdateVector OnUpdatePrimGroupPosition;
         public event UpdateVector OnUpdatePrimSinglePosition;
         public event UpdatePrimRotation OnUpdatePrimGroupRotation;
@@ -295,7 +298,7 @@ namespace OpenSim.Tests.Common
         public event ClassifiedInfoRequest OnClassifiedInfoRequest;
         public event ClassifiedInfoUpdate OnClassifiedInfoUpdate;
         public event ClassifiedDelete OnClassifiedDelete;
-        public event ClassifiedDelete OnClassifiedGodDelete;
+        public event ClassifiedGodDelete OnClassifiedGodDelete;
 
         public event EventNotificationAddRequest OnEventNotificationAddRequest;
         public event EventNotificationRemoveRequest OnEventNotificationRemoveRequest;
@@ -318,7 +321,7 @@ namespace OpenSim.Tests.Common
         public event AvatarInterestUpdate OnAvatarInterestUpdate;
 
         public event PlacesQuery OnPlacesQuery;
-        
+
         public event FindAgentUpdate OnFindAgent;
         public event TrackAgentUpdate OnTrackAgent;
         public event NewUserReport OnUserReport;
@@ -334,11 +337,12 @@ namespace OpenSim.Tests.Common
         public event GroupVoteHistoryRequest OnGroupVoteHistoryRequest;
         public event SimWideDeletesDelegate OnSimWideDeletes;
         public event SendPostcard OnSendPostcard;
+        public event ChangeInventoryItemFlags OnChangeInventoryItemFlags;
         public event MuteListEntryUpdate OnUpdateMuteListEntry;
         public event MuteListEntryRemove OnRemoveMuteListEntry;
         public event GodlikeMessage onGodlikeMessage;
         public event GodUpdateRegionInfoUpdate OnGodUpdateRegionInfoUpdate;
-
+        public event GenericCall2 OnUpdateThrottles;
 #pragma warning restore 67
 
         /// <value>
@@ -387,6 +391,8 @@ namespace OpenSim.Tests.Common
             get { return FirstName + " " + LastName; }
         }
 
+        public int PingTimeMS { get { return 0; } }
+
         public bool IsActive
         {
             get { return true; }
@@ -398,22 +404,32 @@ namespace OpenSim.Tests.Common
         public UUID ActiveGroupId
         {
             get { return UUID.Zero; }
+            set { }
         }
 
         public string ActiveGroupName
         {
             get { return String.Empty; }
+            set { }
         }
 
         public ulong ActiveGroupPowers
         {
             get { return 0; }
+            set { }
         }
 
         public bool IsGroupMember(UUID groupID)
         {
             return false;
         }
+
+        public Dictionary<UUID, ulong> GetGroupPowers()
+        {
+            return new Dictionary<UUID, ulong>();
+        }
+
+        public void SetGroupPowers(Dictionary<UUID, ulong> powers) { }
 
         public ulong GetGroupPowers(UUID groupID)
         {
@@ -447,6 +463,8 @@ namespace OpenSim.Tests.Common
         {
             get { return new IPEndPoint(IPAddress.Loopback, (ushort)m_circuitCode); }
         }
+
+        public List<uint> SelectedObjects {get; private set;}
 
         /// <summary>
         /// Constructor
@@ -570,8 +588,25 @@ namespace OpenSim.Tests.Common
             ReceivedKills.AddRange(localID);
         }
 
+        public void SendPartFullUpdate(ISceneEntity ent, uint? parentID)
+        {
+        }
+
         public virtual void SetChildAgentThrottle(byte[] throttle)
         {
+        }
+
+        public virtual void SetChildAgentThrottle(byte[] throttle, float factor)
+        {
+        }
+
+        public void SetAgentThrottleSilent(int throttle, int setting)
+        {
+        }
+
+        public int GetAgentThrottleSilent(int throttle)
+        {
+            return 0;
         }
 
         public byte[] GetThrottlesPacked(float multiplier)
@@ -608,6 +643,11 @@ namespace OpenSim.Tests.Common
 
         }
 
+        public virtual bool CanSendLayerData()
+        {
+            return false;
+        }
+
         public virtual void SendLayerData(float[] map)
         {
         }
@@ -619,9 +659,9 @@ namespace OpenSim.Tests.Common
         {
         }
 
-        public virtual void SendWindData(Vector2[] windSpeeds) { }
+        public virtual void SendWindData(int version, Vector2[] windSpeeds) { }
 
-        public virtual void SendCloudData(float[] cloudCover) { }
+        public virtual void SendCloudData(int version, float[] cloudCover) { }
 
         public virtual void MoveAgentIntoRegion(RegionInfo regInfo, Vector3 pos, Vector3 look)
         {
@@ -633,7 +673,7 @@ namespace OpenSim.Tests.Common
         {
             AgentCircuitData agentData = new AgentCircuitData();
             agentData.AgentID = AgentId;
-            agentData.SessionID = SessionId; 
+            agentData.SessionID = SessionId;
             agentData.SecureSessionID = UUID.Zero;
             agentData.circuitcode = m_circuitCode;
             agentData.child = false;
@@ -673,7 +713,7 @@ namespace OpenSim.Tests.Common
         public virtual void SendTeleportFailed(string reason)
         {
             m_log.DebugFormat(
-                "[TEST CLIENT]: Teleport failed for {0} {1} on {2} with reason {3}", 
+                "[TEST CLIENT]: Teleport failed for {0} {1} on {2} with reason {3}",
                 m_firstName, m_lastName, m_scene.Name, reason);
         }
 
@@ -720,7 +760,11 @@ namespace OpenSim.Tests.Common
         {
         }
 
-        public void SendAvatarDataImmediate(ISceneEntity avatar)
+        public void SendEntityFullUpdateImmediate(ISceneEntity ent)
+        {
+        }
+
+        public void SendEntityTerseUpdateImmediate(ISceneEntity ent)
         {
         }
 
@@ -741,7 +785,7 @@ namespace OpenSim.Tests.Common
         public virtual void SendInventoryFolderDetails(UUID ownerID, UUID folderID,
                                                        List<InventoryItemBase> items,
                                                        List<InventoryFolderBase> folders,
-                                                       int version, 
+                                                       int version,
                                                        bool fetchFolders,
                                                        bool fetchItems)
         {
@@ -752,6 +796,10 @@ namespace OpenSim.Tests.Common
         }
 
         public virtual void SendInventoryItemCreateUpdate(InventoryItemBase Item, uint callbackID)
+        {
+        }
+
+        public void SendInventoryItemCreateUpdate(InventoryItemBase Item, UUID transactionID, uint callbackId)
         {
         }
 
@@ -771,7 +819,7 @@ namespace OpenSim.Tests.Common
         {
         }
 
-        public virtual void SendXferPacket(ulong xferID, uint packet, byte[] data)
+        public virtual void SendXferPacket(ulong xferID, uint packet, byte[] data, bool isTaskInventory)
         {
         }
 
@@ -817,6 +865,10 @@ namespace OpenSim.Tests.Common
         {
         }
 
+        public void SendAlertMessage(string message, string info)
+        {
+        }
+
         public void SendSystemAlertMessage(string message)
         {
         }
@@ -833,7 +885,7 @@ namespace OpenSim.Tests.Common
                 OnRegionHandShakeReply(this);
             }
         }
-        
+
         public void SendAssetUploadCompleteMessage(sbyte AssetType, bool Success, UUID AssetFullID)
         {
         }
@@ -910,8 +962,13 @@ namespace OpenSim.Tests.Common
             ReceivedOnlineNotifications.AddRange(agentIDs);
         }
 
-        public void SendSitResponse(UUID TargetID, Vector3 OffsetPos, Quaternion SitOrientation, bool autopilot,
-                                        Vector3 CameraAtOffset, Vector3 CameraEyeOffset, bool ForceMouseLook)
+        public void SendFindAgent(UUID HunterID, UUID PreyID, double GlobalX, double GlobalY)
+        {
+        }
+
+        public void SendSitResponse(UUID TargetID, Vector3 OffsetPos,
+                        Quaternion SitOrientation, bool autopilot,
+                        Vector3 CameraAtOffset, Vector3 CameraEyeOffset, bool ForceMouseLook)
         {
         }
 
@@ -937,7 +994,7 @@ namespace OpenSim.Tests.Common
         {
         }
 
-        public void SendAvatarProperties(UUID avatarID, string aboutText, string bornOn, Byte[] charterMember,
+        public void SendAvatarProperties(UUID avatarID, string aboutText, string bornOn, Byte[] membershipType,
                                          string flAbout, uint flags, UUID flImageID, UUID imageID, string profileURL,
                                          UUID partnerID)
         {
@@ -966,10 +1023,10 @@ namespace OpenSim.Tests.Common
 
         public void Close()
         {
-            Close(false);
+            Close(true, false);
         }
 
-        public void Close(bool force)
+        public void Close(bool sendStop, bool force)
         {
             // Fire the callback for this connection closing
             // This is necesary to get the presence detector to notice that a client has logged out.
@@ -1175,6 +1232,10 @@ namespace OpenSim.Tests.Common
         {
         }
 
+        public void SendAgentGroupDataUpdate(UUID avatarID, GroupMembershipData[] data)
+        {
+        }
+
         public void SendJoinGroupReply(UUID groupID, bool success)
         {
         }
@@ -1238,6 +1299,18 @@ namespace OpenSim.Tests.Common
         {
         }
 
+        public void UpdateGroupMembership(GroupMembershipData[] data)
+        {
+        }
+
+        public void GroupMembershipRemove(UUID GroupID)
+        {
+        }
+
+        public void GroupMembershipAddReplace(UUID GroupID,ulong GroupPowers)
+        {
+        }
+
         public void SendUseCachedMuteList()
         {
         }
@@ -1245,7 +1318,7 @@ namespace OpenSim.Tests.Common
         public void SendMuteListUpdate(string filename)
         {
         }
-        
+
         public void SendPickInfoReply(UUID pickID,UUID creatorID, bool topPick, UUID parcelID, string name, string desc, UUID snapshotID, string user, string originalName, string simName, Vector3 posGlobal, int sortOrder, bool enabled)
         {
         }
@@ -1265,7 +1338,7 @@ namespace OpenSim.Tests.Common
         {
         }
 
-        public void Disconnect() 
+        public void Disconnect()
         {
         }
 
@@ -1274,19 +1347,19 @@ namespace OpenSim.Tests.Common
             if (OnReceivedSendRebakeAvatarTextures != null)
                 OnReceivedSendRebakeAvatarTextures(textureID);
         }
-        
+
         public void SendAvatarInterestsReply(UUID avatarID, uint wantMask, string wantText, uint skillsMask, string skillsText, string languages)
         {
         }
-        
+
         public void SendGroupAccountingDetails(IClientAPI sender,UUID groupID, UUID transactionID, UUID sessionID, int amt)
         {
         }
-        
+
         public void SendGroupAccountingSummary(IClientAPI sender,UUID groupID, uint moneyAmt, int totalTier, int usedTier)
         {
         }
-        
+
         public void SendGroupTransactionsSummaryDetails(IClientAPI sender,UUID groupID, UUID transactionID, UUID sessionID,int amt)
         {
         }
@@ -1315,9 +1388,12 @@ namespace OpenSim.Tests.Common
         {
         }
 
-        public void SendPartPhysicsProprieties(ISceneEntity entity)
+        public void SendSelectedPartsProprieties(List<ISceneEntity> parts)
         {
         }
 
+        public void SendPartPhysicsProprieties(ISceneEntity entity)
+        {
+        }
     }
 }

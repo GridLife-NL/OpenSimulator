@@ -131,8 +131,11 @@ namespace OpenSim.Region.OptionalModules.ViewerSupport
             {
                 foreach (MenuItemData d in m_menuItems[UUID.Zero])
                 {
-                    if (d.Mode == UserMode.God && (!m_scene.Permissions.IsGod(agentID)))
-                        continue;
+                    if (!m_scene.Permissions.IsGod(agentID))
+                    {
+                        if (d.Mode == UserMode.RegionManager && (!m_scene.Permissions.IsAdministrator(agentID)))
+                            continue;
+                    }
 
                     OSDMap loc = null;
                     switch (d.Location)
@@ -156,7 +159,7 @@ namespace OpenSim.Region.OptionalModules.ViewerSupport
 
                     if (loc == null)
                         continue;
-                    
+
                     loc[d.Title] = OSD.FromString(d.Title);
                 }
             }
@@ -190,7 +193,7 @@ namespace OpenSim.Region.OptionalModules.ViewerSupport
 
                     if (loc == null)
                         continue;
-                    
+
                     loc[d.Title] = OSD.FromString(d.Title);
                 }
             }

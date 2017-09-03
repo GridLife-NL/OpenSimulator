@@ -71,7 +71,6 @@ namespace OpenSim.Region.ClientStack.Linden.Tests
 
             IConfigSource config = new IniConfigSource();
             config.AddConfig("Startup");
-            config.Configs["Startup"].Set("EventQueue", "true");
 
             CapabilitiesModule capsModule = new CapabilitiesModule();
             m_eqgMod = new EventQueueGetModule();
@@ -126,6 +125,15 @@ namespace OpenSim.Region.ClientStack.Linden.Tests
 
             Hashtable eventsResponse = m_eqgMod.GetEvents(UUID.Zero, sp.UUID);
 
+            // initial queue as null events
+            eventsResponse = m_eqgMod.GetEvents(UUID.Zero, sp.UUID);
+            if((int)eventsResponse["int_response_code"] != (int)HttpStatusCode.OK)
+            {
+                eventsResponse = m_eqgMod.GetEvents(UUID.Zero, sp.UUID);
+                if((int)eventsResponse["int_response_code"] != (int)HttpStatusCode.OK)
+                    eventsResponse = m_eqgMod.GetEvents(UUID.Zero, sp.UUID);
+            }
+
             Assert.That((int)eventsResponse["int_response_code"], Is.EqualTo((int)HttpStatusCode.OK));
 
 //            Console.WriteLine("Response [{0}]", (string)eventsResponse["str_response_string"]);
@@ -172,7 +180,7 @@ namespace OpenSim.Region.ClientStack.Linden.Tests
             TestHelpers.InMethod();
 //            TestHelpers.EnableLogging();
 
-            UUID npcId 
+            UUID npcId
                 = m_npcMod.CreateNPC(
                     "John", "Smith", new Vector3(128, 128, 30), UUID.Zero, true, m_scene, new AvatarAppearance());
 

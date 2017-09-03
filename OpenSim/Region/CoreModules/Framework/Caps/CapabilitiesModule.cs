@@ -47,23 +47,23 @@ namespace OpenSim.Region.CoreModules.Framework
 {
     [Extension(Path = "/OpenSim/RegionModules", NodeName = "RegionModule", Id = "CapabilitiesModule")]
     public class CapabilitiesModule : INonSharedRegionModule, ICapabilitiesModule
-    { 
+    {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private string m_showCapsCommandFormat = "   {0,-38} {1,-60}\n";
-        
+
         protected Scene m_scene;
-        
+
         /// <summary>
         /// Each agent has its own capabilities handler.
         /// </summary>
-        protected Dictionary<UUID, Caps> m_capsObjects = new Dictionary<UUID, Caps>();
-        
+        protected Dictionary<uint, Caps> m_capsObjects = new Dictionary<uint, Caps>();
+
         protected Dictionary<UUID, string> m_capsPaths = new Dictionary<UUID, string>();
 
-        protected Dictionary<UUID, Dictionary<ulong, string>> m_childrenSeeds 
+        protected Dictionary<UUID, Dictionary<ulong, string>> m_childrenSeeds
             = new Dictionary<UUID, Dictionary<ulong, string>>();
-        
+
         public void Initialise(IConfigSource source)
         {
         }
@@ -101,16 +101,16 @@ namespace OpenSim.Region.CoreModules.Framework
         {
             m_scene.UnregisterModuleInterface<ICapabilitiesModule>(this);
         }
-        
-        public void PostInitialise() 
+
+        public void PostInitialise()
         {
         }
 
         public void Close() {}
 
-        public string Name 
-        { 
-            get { return "Capabilities Module"; } 
+        public string Name
+        {
+            get { return "Capabilities Module"; }
         }
 
         public Type ReplaceableInterface
@@ -118,23 +118,46 @@ namespace OpenSim.Region.CoreModules.Framework
             get { return null; }
         }
 
-        public void CreateCaps(UUID agentId)
+        public void CreateCaps(UUID agentId, uint circuitCode)
         {
-            if (m_scene.RegionInfo.EstateSettings.IsBanned(agentId))
-                return;
+            int ts = Util.EnvironmentTickCount();
+/*  this as no business here...
+ * must be done elsewhere ( and is )
+            int flags = m_scene.GetUserFlags(agentId);
 
+            m_log.ErrorFormat("[CreateCaps]: banCheck {0} ", Util.EnvironmentTickCountSubtract(ts));
+
+            if (m_scene.RegionInfo.EstateSettings.IsBanned(agentId, flags))
+                return;
+*/
             Caps caps;
             String capsObjectPath = GetCapsPath(agentId);
 
             lock (m_capsObjects)
             {
-                if (m_capsObjects.ContainsKey(agentId))
+                if (m_capsObjects.ContainsKey(circuitCode))
                 {
-                    Caps oldCaps = m_capsObjects[agentId];
-                    
-                    //m_log.WarnFormat(
-                    //    "[CAPS]: Recreating caps for agent {0} in region {1}.  Old caps path {2}, new caps path {3}. ", 
-                    //    agentId, m_scene.RegionInfo.RegionName, oldCaps.CapsObjectPath, capsObjectPath);
+                    Caps oldCaps = m_capsObjects[circuitCode];
+
+
+                    if (capsObjectPath == oldCaps.CapsObjectPath)
+                    {
+//                        m_log.WarnFormat(
+//                           "[CAPS]: Reusing caps for agent {0} in region {1}.  Old caps path {2}, new caps path {3}. ",
+//                            agentId, m_scene.RegionInfo.RegionName, oldCaps.CapsObjectPath, capsObjectPath);
+                        return;
+                    }
+                    else
+                    {
+                        // not reusing  add extra melanie cleanup
+                        // Remove tge handlers. They may conflict with the
+                        // new object created below
+                        oldCaps.DeregisterHandlers();
+
+                        // Better safe ... should not be needed but also
+                        // no big deal
+                        m_capsObjects.Remove(circuitCode);
+                    }
                 }
 
 //                m_log.DebugFormat(
@@ -145,13 +168,17 @@ namespace OpenSim.Region.CoreModules.Framework
                         (MainServer.Instance == null) ? 0: MainServer.Instance.Port,
                         capsObjectPath, agentId, m_scene.RegionInfo.RegionName);
 
-                m_capsObjects[agentId] = caps;
-            }
+                m_log.DebugFormat("[CreateCaps]: new caps agent {0}, circuit {1}, path {2}, time {3} ",agentId,
+                    circuitCode,caps.CapsObjectPath, Util.EnvironmentTickCountSubtract(ts));
 
+                m_capsObjects[circuitCode] = caps;
+            }
             m_scene.EventManager.TriggerOnRegisterCaps(agentId, caps);
+//            m_log.ErrorFormat("[CreateCaps]: end {0} ", Util.EnvironmentTickCountSubtract(ts));
+
         }
 
-        public void RemoveCaps(UUID agentId)
+        public void RemoveCaps(UUID agentId, uint circuitCode)
         {
             m_log.DebugFormat("[CAPS]: Remove caps for agent {0} in region {1}", agentId, m_scene.RegionInfo.RegionName);
             lock (m_childrenSeeds)
@@ -164,44 +191,65 @@ namespace OpenSim.Region.CoreModules.Framework
 
             lock (m_capsObjects)
             {
-                if (m_capsObjects.ContainsKey(agentId))
+                if (m_capsObjects.ContainsKey(circuitCode))
                 {
-                    m_capsObjects[agentId].DeregisterHandlers();
-                    m_scene.EventManager.TriggerOnDeregisterCaps(agentId, m_capsObjects[agentId]);
-                    m_capsObjects.Remove(agentId);
+                    m_capsObjects[circuitCode].DeregisterHandlers();
+                    m_scene.EventManager.TriggerOnDeregisterCaps(agentId, m_capsObjects[circuitCode]);
+                    m_capsObjects.Remove(circuitCode);
                 }
                 else
                 {
+                    foreach (KeyValuePair<uint, Caps> kvp in m_capsObjects)
+                    {
+                        if (kvp.Value.AgentID == agentId)
+                        {
+                            kvp.Value.DeregisterHandlers();
+                            m_scene.EventManager.TriggerOnDeregisterCaps(agentId, kvp.Value);
+                            m_capsObjects.Remove(kvp.Key);
+                            return;
+                        }
+                    }
                     m_log.WarnFormat(
                         "[CAPS]: Received request to remove CAPS handler for root agent {0} in {1}, but no such CAPS handler found!",
                         agentId, m_scene.RegionInfo.RegionName);
                 }
             }
         }
-        
-        public Caps GetCapsForUser(UUID agentId)
+
+        public Caps GetCapsForUser(uint circuitCode)
         {
             lock (m_capsObjects)
             {
-                if (m_capsObjects.ContainsKey(agentId))
+                if (m_capsObjects.ContainsKey(circuitCode))
                 {
-                    return m_capsObjects[agentId];
+                    return m_capsObjects[circuitCode];
                 }
             }
-            
+
             return null;
         }
-        
+
+        public void ActivateCaps(uint circuitCode)
+        {
+            lock (m_capsObjects)
+            {
+                if (m_capsObjects.ContainsKey(circuitCode))
+                {
+                    m_capsObjects[circuitCode].Activate();
+                }
+            }
+        }
+
         public void SetAgentCapsSeeds(AgentCircuitData agent)
         {
             lock (m_capsPaths)
                 m_capsPaths[agent.AgentID] = agent.CapsPath;
 
             lock (m_childrenSeeds)
-                m_childrenSeeds[agent.AgentID] 
+                m_childrenSeeds[agent.AgentID]
                     = ((agent.ChildrenCapSeeds == null) ? new Dictionary<ulong, string>() : agent.ChildrenCapSeeds);
         }
-        
+
         public string GetCapsPath(UUID agentId)
         {
             lock (m_capsPaths)
@@ -214,7 +262,7 @@ namespace OpenSim.Region.CoreModules.Framework
 
             return null;
         }
-        
+
         public Dictionary<ulong, string> GetChildrenSeeds(UUID agentID)
         {
             Dictionary<ulong, string> seeds = null;
@@ -289,9 +337,9 @@ namespace OpenSim.Region.CoreModules.Framework
 
             lock (m_capsObjects)
             {
-                foreach (KeyValuePair<UUID, Caps> kvp in m_capsObjects)
+                foreach (KeyValuePair<uint, Caps> kvp in m_capsObjects)
                 {
-                    capsReport.AppendFormat("** User {0}:\n", kvp.Key);
+                    capsReport.AppendFormat("** Circuit {0}:\n", kvp.Key);
                     Caps caps = kvp.Value;
 
                     for (IDictionaryEnumerator kvp2 = caps.CapsHandlers.GetCapsDetails(false, null).GetEnumerator(); kvp2.MoveNext(); )
@@ -339,6 +387,7 @@ namespace OpenSim.Region.CoreModules.Framework
 
         private void BuildDetailedStatsByCapReport(StringBuilder sb, string capName)
         {
+            /*
             sb.AppendFormat("Capability name {0}\n", capName);
 
             ConsoleDisplayTable cdt = new ConsoleDisplayTable();
@@ -365,8 +414,8 @@ namespace OpenSim.Region.CoreModules.Framework
                     {
                         receivedStats[sp.Name] = reqHandler.RequestsReceived;
                         handledStats[sp.Name] = reqHandler.RequestsHandled;
-                    }        
-                    else 
+                    }
+                    else
                     {
                         PollServiceEventArgs pollHandler = null;
                         if (caps.TryGetPollHandler(capName, out pollHandler))
@@ -384,10 +433,12 @@ namespace OpenSim.Region.CoreModules.Framework
             }
 
             sb.Append(cdt.ToString());
+            */
         }
 
         private void BuildSummaryStatsByCapReport(StringBuilder sb)
         {
+            /*
             ConsoleDisplayTable cdt = new ConsoleDisplayTable();
             cdt.AddColumn("Name", 34);
             cdt.AddColumn("Req Received", 12);
@@ -403,7 +454,7 @@ namespace OpenSim.Region.CoreModules.Framework
                     Caps caps = m_scene.CapsModule.GetCapsForUser(sp.UUID);
 
                     if (caps == null)
-                        return;            
+                        return;
 
                     foreach (IRequestHandler reqHandler in caps.CapsHandlers.GetCapsHandlers().Values)
                     {
@@ -439,15 +490,17 @@ namespace OpenSim.Region.CoreModules.Framework
                     }
                 }
             );
-                    
+
             foreach (KeyValuePair<string, int> kvp in receivedStats.OrderByDescending(kp => kp.Value))
                 cdt.AddRow(kvp.Key, kvp.Value, handledStats[kvp.Key]);
 
             sb.Append(cdt.ToString());
+            */
         }
 
         private void HandleShowCapsStatsByUserCommand(string module, string[] cmdParams)
         {
+            /*
             if (SceneManager.Instance.CurrentScene != null && SceneManager.Instance.CurrentScene != m_scene)
                 return;
 
@@ -478,10 +531,12 @@ namespace OpenSim.Region.CoreModules.Framework
             }
 
             MainConsole.Instance.Output(sb.ToString());
+            */
         }
 
         private void BuildDetailedStatsByUserReport(StringBuilder sb, ScenePresence sp)
         {
+            /*
             sb.AppendFormat("Avatar name {0}, type {1}\n", sp.Name, sp.IsChildAgent ? "child" : "root");
 
             ConsoleDisplayTable cdt = new ConsoleDisplayTable();
@@ -504,13 +559,15 @@ namespace OpenSim.Region.CoreModules.Framework
                 capRows.Add(new CapTableRow(kvp.Key, kvp.Value.RequestsReceived, kvp.Value.RequestsHandled));
 
             foreach (CapTableRow ctr in capRows.OrderByDescending(ctr => ctr.RequestsReceived))
-                cdt.AddRow(ctr.Name, ctr.RequestsReceived, ctr.RequestsHandled);            
+                cdt.AddRow(ctr.Name, ctr.RequestsReceived, ctr.RequestsHandled);
 
             sb.Append(cdt.ToString());
+            */
         }
 
         private void BuildSummaryStatsByUserReport(StringBuilder sb)
         {
+            /*
             ConsoleDisplayTable cdt = new ConsoleDisplayTable();
             cdt.AddColumn("Name", 32);
             cdt.AddColumn("Type", 5);
@@ -544,12 +601,13 @@ namespace OpenSim.Region.CoreModules.Framework
                         totalRequestsReceived += handler.RequestsReceived;
                         totalRequestsHandled += handler.RequestsHandled;
                     }
-                    
+
                     cdt.AddRow(sp.Name, sp.IsChildAgent ? "child" : "root", totalRequestsReceived, totalRequestsHandled);
                 }
             );
 
             sb.Append(cdt.ToString());
+            */
         }
 
         private class CapTableRow

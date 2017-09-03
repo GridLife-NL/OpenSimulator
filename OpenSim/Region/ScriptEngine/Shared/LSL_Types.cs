@@ -28,6 +28,7 @@
 using System;
 using System.Collections;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using OpenSim.Framework;
 
@@ -38,7 +39,6 @@ using OMV_Quaternion = OpenMetaverse.Quaternion;
 
 namespace OpenSim.Region.ScriptEngine.Shared
 {
-    [Serializable]
     public partial class LSL_Types
     {
         // Types are kept is separate .dll to avoid having to add whatever .dll it is in it to script AppDomain
@@ -100,21 +100,32 @@ namespace OpenSim.Region.ScriptEngine.Shared
 
             #region Overriders
 
+            public static implicit operator Boolean(Vector3 vec)
+            {
+                if (vec.x != 0)
+                    return true;
+                if (vec.y != 0)
+                    return true;
+                if (vec.z != 0)
+                    return true;
+                return false;
+            }
+
             public override string ToString()
             {
-				string s=String.Format(Culture.FormatProvider,"<{0:0.000000},{1:0.000000},{2:0.000000}>", x, y, z);
+                string s = String.Format(Culture.FormatProvider, "<{0:0.000000}, {1:0.000000}, {2:0.000000}>", x, y, z);
                 return s;
             }
 
             public static explicit operator LSLString(Vector3 vec)
             {
-				string s=String.Format(Culture.FormatProvider,"<{0:0.000000},{1:0.000000},{2:0.000000}>", vec.x, vec.y, vec.z);
+                string s = String.Format(Culture.FormatProvider, "<{0:0.000000}, {1:0.000000}, {2:0.000000}>", vec.x, vec.y, vec.z);
                 return new LSLString(s);
             }
 
             public static explicit operator string(Vector3 vec)
             {
-				string s=String.Format(Culture.FormatProvider,"<{0:0.000000},{1:0.000000},{2:0.000000}>", vec.x, vec.y, vec.z);
+                string s = String.Format(Culture.FormatProvider, "<{0:0.000000}, {1:0.000000}, {2:0.000000}>", vec.x, vec.y, vec.z);
                 return s;
             }
 
@@ -328,7 +339,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 y = (float)Quat.y;
                 z = (float)Quat.z;
                 s = (float)Quat.s;
-                if (x == 0 && y == 0 && z == 0 && s == 0)
+                if (s == 0 && x == 0 && y == 0 && z == 0)
                     s = 1;
             }
 
@@ -338,7 +349,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 y = Y;
                 z = Z;
                 s = S;
-                if (x == 0 && y == 0 && z == 0 && s == 0)
+                if (s == 0 && x == 0 && y == 0 && z == 0)
                     s = 1;
             }
 
@@ -357,7 +368,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 res = res & Double.TryParse(tmps[1], NumberStyles.Float, Culture.NumberFormatInfo, out y);
                 res = res & Double.TryParse(tmps[2], NumberStyles.Float, Culture.NumberFormatInfo, out z);
                 res = res & Double.TryParse(tmps[3], NumberStyles.Float, Culture.NumberFormatInfo, out s);
-                if (x == 0 && y == 0 && z == 0 && s == 0)
+                if (s == 0 && x == 0 && y == 0 && z == 0)
                     s = 1;
             }
 
@@ -397,6 +408,18 @@ namespace OpenSim.Region.ScriptEngine.Shared
             #endregion
 
             #region Overriders
+            public static implicit operator Boolean(Quaternion q)
+            {
+                if (q.x != 0)
+                    return true;
+                if (q.y != 0)
+                    return true;
+                if (q.z != 0)
+                    return true;
+                if (q.s != 1.0f)
+                    return true;
+                return false;
+            }
 
             public override int GetHashCode()
             {
@@ -414,19 +437,19 @@ namespace OpenSim.Region.ScriptEngine.Shared
 
             public override string ToString()
             {
-                string st=String.Format(Culture.FormatProvider, "<{0:0.000000},{1:0.000000},{2:0.000000},{3:0.000000}>", x, y, z, s);
+                string st=String.Format(Culture.FormatProvider, "<{0:0.000000}, {1:0.000000}, {2:0.000000}, {3:0.000000}>", x, y, z, s);
                 return st;
             }
 
             public static explicit operator string(Quaternion r)
             {
-                string s=String.Format("<{0:0.000000},{1:0.000000},{2:0.000000},{3:0.000000}>", r.x, r.y, r.z, r.s);
+                string s=String.Format(Culture.FormatProvider,"<{0:0.000000}, {1:0.000000}, {2:0.000000}, {3:0.000000}>", r.x, r.y, r.z, r.s);
                 return s;
             }
 
             public static explicit operator LSLString(Quaternion r)
             {
-                string s=String.Format("<{0:0.000000},{1:0.000000},{2:0.000000},{3:0.000000}>", r.x, r.y, r.z, r.s);
+                string s=String.Format(Culture.FormatProvider,"<{0:0.000000}, {1:0.000000}, {2:0.000000}, {3:0.000000}>", r.x, r.y, r.z, r.s);
                 return new LSLString(s);
             }
 
@@ -502,7 +525,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
         }
 
         [Serializable]
-        public struct list
+        public class list
         {
             private object[] m_data;
 
@@ -537,7 +560,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                         else if (o is LSL_Types.LSLFloat)
                             size += 8;
                         else if (o is LSL_Types.LSLString)
-                            size += ((LSL_Types.LSLString)o).m_string.Length;
+                            size += ((LSL_Types.LSLString)o).m_string == null ? 0 : ((LSL_Types.LSLString)o).m_string.Length;
                         else if (o is LSL_Types.key)
                             size += ((LSL_Types.key)o).value.Length;
                         else if (o is LSL_Types.Vector3)
@@ -545,6 +568,8 @@ namespace OpenSim.Region.ScriptEngine.Shared
                         else if (o is LSL_Types.Quaternion)
                             size += 64;
                         else if (o is int)
+                            size += 4;
+                        else if (o is uint)
                             size += 4;
                         else if (o is string)
                             size += ((string)o).Length;
@@ -675,16 +700,45 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 }
             }
 
+            // use LSL_Types.Quaternion to parse and store a vector4 for lightShare
+            public LSL_Types.Quaternion GetVector4Item(int itemIndex)
+            {
+                if (Data[itemIndex] is LSL_Types.Quaternion)
+                {
+                    LSL_Types.Quaternion q = (LSL_Types.Quaternion)Data[itemIndex];
+                    return q;
+                }
+                else if(Data[itemIndex] is OpenMetaverse.Quaternion)
+                {
+                    LSL_Types.Quaternion q = new LSL_Types.Quaternion(
+                            (OpenMetaverse.Quaternion)Data[itemIndex]);
+                    q.Normalize();
+                    return q;
+                }
+                else
+                {
+                    throw new InvalidCastException(string.Format(
+                        "{0} expected but {1} given",
+                        typeof(LSL_Types.Quaternion).Name,
+                        Data[itemIndex] != null ?
+                        Data[itemIndex].GetType().Name : "null"));
+                }
+            }
+
             public LSL_Types.Quaternion GetQuaternionItem(int itemIndex)
             {
                 if (Data[itemIndex] is LSL_Types.Quaternion)
                 {
-                    return (LSL_Types.Quaternion)Data[itemIndex];
+                    LSL_Types.Quaternion q = (LSL_Types.Quaternion)Data[itemIndex];
+                    q.Normalize();
+                    return q;
                 }
                 else if(Data[itemIndex] is OpenMetaverse.Quaternion)
                 {
-                    return new LSL_Types.Quaternion(
+                    LSL_Types.Quaternion q = new LSL_Types.Quaternion(
                             (OpenMetaverse.Quaternion)Data[itemIndex]);
+                    q.Normalize();
+                    return q;
                 }
                 else
                 {
@@ -717,6 +771,11 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 Data.CopyTo(tmp, 0);
                 tmp.SetValue(o, tmp.Length - 1);
                 Data = tmp;
+            }
+
+            public static implicit operator Boolean(list l)
+            {
+                return l.Length != 0;
             }
 
             public static list operator +(list a, LSLString s)
@@ -755,7 +814,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 int lb = -1;
                 try { la = a.Length; }
                 catch (NullReferenceException) { }
-                try {lb = b.Length;}
+                try { lb = b.Length; }
                 catch (NullReferenceException) { }
 
                 return la != lb;
@@ -1023,6 +1082,9 @@ namespace OpenSim.Region.ScriptEngine.Shared
                     stride = 1;
                 }
 
+                if ((Data.Length % stride) != 0)
+                    return new list(ret);
+
                 // we can optimize here in the case where stride == 1 and the list
                 // consists of homogeneous types
 
@@ -1090,34 +1152,35 @@ namespace OpenSim.Region.ScriptEngine.Shared
 
             public string ToCSV()
             {
-                string ret = "";
-                foreach (object o in this.Data)
+                if(m_data == null || m_data.Length == 0)
+                    return String.Empty;
+
+                Object o = m_data[0];
+                int len = m_data.Length;
+                if(len == 1)
+                    return o.ToString();
+
+                StringBuilder sb = new StringBuilder(1024);
+                sb.Append(o.ToString());
+                for(int i = 1 ; i < len; i++)
                 {
-                    if (ret == "")
-                    {
-                        ret = o.ToString();
-                    }
-                    else
-                    {
-                        ret = ret + ", " + o.ToString();
-                    }
+                    sb.Append(",");
+                    sb.Append(o.ToString());
                 }
-                return ret;
+                return sb.ToString();
             }
 
             private string ToSoup()
             {
-                string output;
-                output = String.Empty;
-                if (Data.Length == 0)
-                {
+                if(m_data == null || m_data.Length == 0)
                     return String.Empty;
-                }
-                foreach (object o in Data)
+
+                StringBuilder sb = new StringBuilder(1024);
+                foreach (object o in m_data)
                 {
-                    output = output + o.ToString();
+                    sb.Append(o.ToString());
                 }
-                return output;
+                return sb.ToString();
             }
 
             public static explicit operator String(list l)
@@ -1307,26 +1370,33 @@ namespace OpenSim.Region.ScriptEngine.Shared
 
             public string ToPrettyString()
             {
-                string output;
-                if (Data.Length == 0)
-                {
+                if(m_data == null || m_data.Length == 0)
                     return "[]";
-                }
-                output = "[";
-                foreach (object o in Data)
+
+                StringBuilder sb = new StringBuilder(1024);
+                int len = m_data.Length;
+                int last = len - 1;
+                object o;
+
+                sb.Append("[");
+                for(int i = 0; i < len; i++ )
                 {
+                    o = m_data[i];
                     if (o is String)
                     {
-                        output = output + "\"" + o + "\", ";
+                        sb.Append("\"");
+                        sb.Append((String)o);
+                        sb.Append("\"");
                     }
                     else
                     {
-                        output = output + o.ToString() + ", ";
+                        sb.Append(o.ToString());
                     }
+                    if(i < last)
+                        sb.Append(",");
                 }
-                output = output.Substring(0, output.Length - 2);
-                output = output + "]";
-                return output;
+                sb.Append("]");
+                return sb.ToString();
             }
 
             public class AlphaCompare : IComparer
@@ -1433,7 +1503,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                     return false;
                 }
             }
-            
+
             public static bool operator true(key k)
             {
                 return (Boolean)k;
@@ -1513,7 +1583,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                 string s = String.Format(Culture.FormatProvider, "{0:0.000000}", f.value);
                 m_string = s;
             }
-            
+
             public LSLString(int i)
             {
                 string s = String.Format("{0}", i);
@@ -1521,7 +1591,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
             }
 
             public LSLString(LSLInteger i) : this(i.value) {}
-            
+
             #endregion
 
             #region Operators
@@ -1536,8 +1606,6 @@ namespace OpenSim.Region.ScriptEngine.Shared
                     return true;
                 }
             }
-
-
 
             static public implicit operator String(LSLString s)
             {
@@ -1588,7 +1656,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
             {
                 return new LSLString(d);
             }
-            
+
             static public explicit operator LSLString(int i)
             {
                 return new LSLString(i);
@@ -1876,7 +1944,7 @@ namespace OpenSim.Region.ScriptEngine.Shared
                         return false;
                     }
                 }
-                
+
                 return value == ((LSLInteger)o).value;
             }
 

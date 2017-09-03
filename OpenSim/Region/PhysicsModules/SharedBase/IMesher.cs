@@ -27,6 +27,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using OpenSim.Framework;
 using OpenMetaverse;
 
@@ -36,13 +37,18 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
     {
         IMesh CreateMesh(String primName, PrimitiveBaseShape primShape, Vector3 size, float lod);
         IMesh CreateMesh(String primName, PrimitiveBaseShape primShape, Vector3 size, float lod, bool isPhysical);
-        IMesh CreateMesh(String primName, PrimitiveBaseShape primShape, Vector3 size, float lod, bool isPhysical, bool shouldCache);
+        IMesh CreateMesh(String primName, PrimitiveBaseShape primShape, Vector3 size, float lod, bool isPhysical, bool convex, bool forOde);
+        IMesh CreateMesh(String primName, PrimitiveBaseShape primShape, Vector3 size, float lod, bool isPhysical, bool shouldCache, bool convex, bool forOde);
+        IMesh GetMesh(String primName, PrimitiveBaseShape primShape, Vector3 size, float lod, bool isPhysical, bool convex);
+        void ReleaseMesh(IMesh mesh);
+        void ExpireReleaseMeshs();
+        void ExpireFileCache();
     }
 
     // Values for level of detail to be passed to the mesher.
     // Values origionally chosen for the LOD of sculpties (the sqrt(width*heigth) of sculpt texture)
     // Lower level of detail reduces the number of vertices used to represent the meshed shape.
-    public enum LevelOfDetail 
+    public enum LevelOfDetail
     {
         High = 32,
         Medium = 16,
@@ -52,6 +58,25 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
 
     public interface IVertex
     {
+    }
+
+    [Serializable()]
+    [StructLayout(LayoutKind.Explicit)]
+    public struct AMeshKey
+    {
+        [FieldOffset(0)]
+        public UUID uuid;
+        [FieldOffset(0)]
+        public ulong hashA;
+        [FieldOffset(8)]
+        public ulong hashB;
+        [FieldOffset(16)]
+        public ulong hashC;
+
+        public override string ToString()
+        {
+            return uuid.ToString() + "-" + hashC.ToString("x") ;
+        }
     }
 
     public interface IMesh
@@ -67,5 +92,7 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         void releasePinned();
         void Append(IMesh newMesh);
         void TransformLinear(float[,] matrix, float[] offset);
+        Vector3 GetCentroid();
+        Vector3 GetOBB();
     }
 }

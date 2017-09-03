@@ -26,8 +26,8 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Collections.Generic;
 using System.Reflection;
 using log4net;
 using Nini.Config;
@@ -38,7 +38,7 @@ namespace OpenSim.Services.Base
     public class ServiceBase
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        
+
         public T LoadPlugin<T>(string dllName) where T:class
         {
             return LoadPlugin<T>(dllName, new Object[0]);
@@ -53,6 +53,7 @@ namespace OpenSim.Services.Base
             string pathRoot = Path.GetPathRoot(dllName);
             string noRoot = dllName.Substring(pathRoot.Length);
             string[] parts = noRoot.Split(new char[] {':'});
+
 
             dllName = pathRoot + parts[0];
 
@@ -104,12 +105,12 @@ namespace OpenSim.Services.Base
                 List<string> strArgs = new List<string>();
                 foreach (Object arg in args)
                     strArgs.Add(arg.ToString());
-                
+
                 m_log.Error(
                     string.Format(
-                        "[SERVICE BASE]: Failed to load plugin {0} from {1} with args {2}", 
+                        "[SERVICE BASE]: Failed to load plugin {0} from {1} with args {2}",
                         interfaceName, dllName, string.Join(", ", strArgs.ToArray())), e);
-                
+
                 return null;
             }
         }

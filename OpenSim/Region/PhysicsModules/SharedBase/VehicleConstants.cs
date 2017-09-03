@@ -26,6 +26,7 @@
  */
 
 using System;
+using OpenMetaverse;
 
 namespace OpenSim.Region.PhysicsModules.SharedBase
 {
@@ -37,7 +38,7 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         TYPE_NONE = 0,
 
         /// <summary>
-        /// No Angular motor, High Left right friction, No Hover, Linear Deflection 1, no angular deflection 
+        /// No Angular motor, High Left right friction, No Hover, Linear Deflection 1, no angular deflection
         /// no vertical attractor, No banking, Identity rotation frame
         /// </summary>
         TYPE_SLED = 1,
@@ -117,5 +118,47 @@ namespace OpenSim.Region.PhysicsModules.SharedBase
         NO_DEFLECTION = 16392,
         LOCK_ROTATION = 32784
     }
-        
+
+    public struct VehicleData
+    {
+        public Vehicle m_type;
+        public VehicleFlag m_flags;
+
+        // Linear properties
+        public Vector3 m_linearMotorDirection;
+        public Vector3 m_linearFrictionTimescale;
+        public float m_linearMotorDecayTimescale;
+        public float m_linearMotorTimescale;
+        public Vector3 m_linearMotorOffset;
+
+        //Angular properties
+        public Vector3 m_angularMotorDirection;
+        public float m_angularMotorTimescale;
+        public float m_angularMotorDecayTimescale;
+        public Vector3 m_angularFrictionTimescale;
+
+        //Deflection properties
+        public float m_angularDeflectionEfficiency;
+        public float m_angularDeflectionTimescale;
+        public float m_linearDeflectionEfficiency;
+        public float m_linearDeflectionTimescale;
+
+        //Banking properties
+        public float m_bankingEfficiency;
+        public float m_bankingMix;
+        public float m_bankingTimescale;
+
+        //Hover and Buoyancy properties
+        public float m_VhoverHeight;
+        public float m_VhoverEfficiency;
+        public float m_VhoverTimescale;
+        public float m_VehicleBuoyancy;
+
+        //Attractor properties
+        public float m_verticalAttractionEfficiency;
+        public float m_verticalAttractionTimescale;
+
+        // Axis
+        public Quaternion m_referenceFrame;
+    }
 }

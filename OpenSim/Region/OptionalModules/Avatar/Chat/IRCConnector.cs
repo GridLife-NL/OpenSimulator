@@ -97,14 +97,14 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
 
         // How many regions depend upon this connection
         // This count is updated by the ChannelState object and reflects the sum
-        // of the region clients associated with the set of associated channel 
+        // of the region clients associated with the set of associated channel
         // state instances. That's why it cannot be managed here.
 
         internal int depends = 0;
 
         // This variable counts the number of resets that have been performed
-        // on the connector. When a listener thread terminates, it checks to 
-        // see of the reset count has changed before it schedules another 
+        // on the connector. When a listener thread terminates, it checks to
+        // see of the reset count has changed before it schedules another
         // reset.
 
         internal int m_resetk = 0;
@@ -270,7 +270,6 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
 
         public void Close()
         {
-
             m_log.InfoFormat("[IRC-Connector-{0}] Closing", idn);
 
             lock (msyncConnect)
@@ -295,7 +294,6 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                         }
                         catch (Exception) { }
 
-
                         m_connected = false;
 
                         try { m_writer.Close(); }
@@ -308,10 +306,8 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                         catch (Exception) { }
 
                     }
-
                     lock (m_connectors)
                         m_connectors.Remove(this);
-
                 }
             }
 
@@ -327,25 +323,21 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
 
         public void Connect()
         {
-
             if (!m_enabled)
                 return;
 
             // Delay until next WD cycle if this is too close to the last start attempt
-
-            while (_icc_ < ICCD_PERIOD)
+            if(_icc_ < ICCD_PERIOD)
                 return;
 
             m_log.DebugFormat("[IRC-Connector-{0}]: Connection request for {1} on {2}:{3}", idn, m_nick, m_server, m_ircChannel);
 
+            _icc_ = 0;
+
             lock (msyncConnect)
             {
-
-                _icc_ = 0;
-
                 try
                 {
-
                     if (m_connected) return;
 
                     m_connected = true;
@@ -368,11 +360,6 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                     m_writer.Flush();
                     m_writer.WriteLine(m_user);
                     m_writer.Flush();
-                    m_writer.WriteLine(String.Format("JOIN {0}", m_ircChannel));
-                    m_writer.Flush();
-
-                    m_log.InfoFormat("[IRC-Connector-{0}]: {1} has asked to join {2}", idn, m_nick, m_ircChannel);
-
                 }
                 catch (Exception e)
                 {
@@ -384,11 +371,9 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                     // expires. By leaving them as they are, the connection will be retried
                     // when the login timeout expires. Which is preferred.
                 }
-
             }
 
             return;
-
         }
 
         // Reconnect is used to force a re-cycle of the IRC connection. Should generally
@@ -443,7 +428,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
         public void PrivMsg(string pattern, string from, string region, string msg)
         {
 
-            // m_log.DebugFormat("[IRC-Connector-{0}] PrivMsg to IRC from {1}: <{2}>", idn, from, 
+            // m_log.DebugFormat("[IRC-Connector-{0}] PrivMsg to IRC from {1}: <{2}>", idn, from,
             //     String.Format(pattern, m_ircChannel, from, region, msg));
 
             // One message to the IRC server
@@ -521,11 +506,11 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                             c.Message = data["msg"];
                             c.Type = ChatTypeEnum.Region;
                             c.Position = CenterOfRegion;
-                            c.From = data["nick"];
+                            c.From =  data["nick"] + "@IRC";
                             c.Sender = null;
                             c.SenderUUID = UUID.Zero;
 
-                            // Is message "\001ACTION foo bar\001"? 
+                            // Is message "\001ACTION foo bar\001"?
                             // Then change to: "/me foo bar"
 
                             if ((1 == c.Message[0]) && c.Message.Substring(1).StartsWith("ACTION"))
@@ -623,8 +608,8 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
             string parms = String.Empty;
 
             // ":" indicates that a prefix is present
-            // There are NEVER more than 17 real 
-            // fields. A parameter that starts with 
+            // There are NEVER more than 17 real
+            // fields. A parameter that starts with
             // ":" indicates that the remainder of the
             // line is a single parameter value.
 
@@ -659,6 +644,11 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                     version = commArgs[2];
                     usermod = commArgs[3];
                     chanmod = commArgs[4];
+
+                    m_writer.WriteLine(String.Format("JOIN {0}", m_ircChannel));
+                    m_writer.Flush();
+                    m_log.InfoFormat("[IRC-Connector-{0}]: sent request to join {1} ", idn, m_ircChannel);
+
                     break;
                 case "005": // Server information
                     break;
@@ -721,11 +711,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                 case "PONG":
                     break;
                 case "JOIN":
-                    if (m_pending)
-                    {
-                        m_log.InfoFormat("[IRC-Connector-{0}] [{1}] Connected", idn, cmd);
-                        m_pending = false;
-                    }
+
                     m_log.DebugFormat("[IRC-Connector-{0}] [{1}] parms = <{2}>", idn, cmd, parms);
                     eventIrcJoin(pfx, cmd, parms);
                     break;
@@ -767,7 +753,13 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
             if (IrcChannel.StartsWith(":"))
                 IrcChannel = IrcChannel.Substring(1);
 
-            m_log.DebugFormat("[IRC-Connector-{0}] Event: IRCJoin {1}:{2}", idn, m_server, m_ircChannel);
+            if(IrcChannel == m_ircChannel)
+            {
+                m_log.InfoFormat("[IRC-Connector-{0}] Joined requested channel {1} at {2}", idn, IrcChannel,m_server);
+                m_pending = false;
+            }
+            else
+                m_log.InfoFormat("[IRC-Connector-{0}] Joined unknown channel {1} at {2}", idn, IrcChannel,m_server);
             BroadcastSim(IrcUser, "/me joins {0}", IrcChannel);
         }
 
@@ -881,7 +873,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.Chat
                             }
 
                             // Being marked connected is not enough to ping. Socket establishment can sometimes take a long
-                            // time, in which case the watch dog might try to ping the server before the socket has been 
+                            // time, in which case the watch dog might try to ping the server before the socket has been
                             // set up, with nasty side-effects.
 
                             else if (_pdk_ == 0)

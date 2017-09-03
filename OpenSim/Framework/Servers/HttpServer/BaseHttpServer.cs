@@ -58,7 +58,7 @@ namespace OpenSim.Framework.Servers.HttpServer
 
         /// <summary>
         /// This is a pending websocket request before it got an sucessful upgrade response.
-        /// The consumer must call handler.HandshakeAndUpgrade() to signal to the handler to 
+        /// The consumer must call handler.HandshakeAndUpgrade() to signal to the handler to
         /// start the connection and optionally provide an origin authentication method.
         /// </summary>
         /// <param name="servicepath"></param>
@@ -104,7 +104,7 @@ namespace OpenSim.Framework.Servers.HttpServer
             new Dictionary<string, PollServiceEventArgs>();
 
         protected Dictionary<string, WebSocketRequestDelegate> m_WebSocketHandlers =
-            new Dictionary<string, WebSocketRequestDelegate>(); 
+            new Dictionary<string, WebSocketRequestDelegate>();
 
         protected uint m_port;
         protected uint m_sslport;
@@ -253,7 +253,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                 return new List<string>(m_rpcHandlers.Keys);
         }
 
-        // JsonRPC 
+        // JsonRPC
         public bool AddJsonRPCHandler(string method, JsonRPCMethod handler)
         {
             lock(jsonRpcHandlers)
@@ -399,10 +399,10 @@ namespace OpenSim.Framework.Servers.HttpServer
 
                         Stream requestStream = req.InputStream;
 
+                        string requestBody;
                         Encoding encoding = Encoding.UTF8;
-                        StreamReader reader = new StreamReader(requestStream, encoding);
-
-                        string requestBody = reader.ReadToEnd();
+                        using(StreamReader reader = new StreamReader(requestStream, encoding))
+                            requestBody = reader.ReadToEnd();
 
                         Hashtable keysvals = new Hashtable();
                         Hashtable headervals = new Hashtable();
@@ -458,10 +458,11 @@ namespace OpenSim.Framework.Servers.HttpServer
                 dWebSocketRequestDelegate(req.Url.AbsolutePath, new WebSocketHttpServerHandler(req, context, 8192));
                 return;
             }
-            
+
             OSHttpResponse resp = new OSHttpResponse(new HttpResponse(context, request),context);
             resp.ReuseContext = true;
-            HandleRequest(req, resp);           
+//            resp.ReuseContext = false;
+            HandleRequest(req, resp);
 
             // !!!HACK ALERT!!!
             // There seems to be a bug in the underlying http code that makes subsequent requests
@@ -552,7 +553,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                         LogIncomingToStreamHandler(request, requestHandler);
 
                     response.ContentType = requestHandler.ContentType; // Lets do this defaulting before in case handler has varying content type.
-                    
+
                     if (requestHandler is IStreamedRequestHandler)
                     {
                         IStreamedRequestHandler streamedRequestHandler = requestHandler as IStreamedRequestHandler;
@@ -565,13 +566,10 @@ namespace OpenSim.Framework.Servers.HttpServer
                         IGenericHTTPHandler HTTPRequestHandler = requestHandler as IGenericHTTPHandler;
                         Stream requestStream = request.InputStream;
 
+                        string requestBody;
                         Encoding encoding = Encoding.UTF8;
-                        StreamReader reader = new StreamReader(requestStream, encoding);
-
-                        string requestBody = reader.ReadToEnd();
-
-                        reader.Close();
-                        //requestStream.Close();
+                        using(StreamReader reader = new StreamReader(requestStream, encoding))
+                            requestBody = reader.ReadToEnd();
 
                         Hashtable keysvals = new Hashtable();
                         Hashtable headervals = new Hashtable();
@@ -628,16 +626,16 @@ namespace OpenSim.Framework.Servers.HttpServer
                         case "text/html":
                             if (DebugLevel >= 3)
                                 LogIncomingToContentTypeHandler(request);
-    
+
                             buffer = HandleHTTPRequest(request, response);
                             break;
-    
+
                         case "application/llsd+xml":
                         case "application/xml+llsd":
                         case "application/llsd+json":
                             if (DebugLevel >= 3)
                                 LogIncomingToContentTypeHandler(request);
-    
+
                             buffer = HandleLLSDRequests(request, response);
                             break;
 
@@ -647,7 +645,7 @@ namespace OpenSim.Framework.Servers.HttpServer
 
                             buffer = HandleJsonRpcRequests(request, response);
                             break;
-    
+
                         case "text/xml":
                         case "application/xml":
                         case "application/json":
@@ -664,7 +662,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                             {
                                 if (DebugLevel >= 3)
                                     LogIncomingToContentTypeHandler(request);
-    
+
                                 buffer = HandleLLSDRequests(request, response);
                             }
     //                        m_log.DebugFormat("[BASE HTTP SERVER]: Checking for HTTP Handler for request {0}", request.RawUrl);
@@ -672,23 +670,24 @@ namespace OpenSim.Framework.Servers.HttpServer
                             {
                                 if (DebugLevel >= 3)
                                     LogIncomingToContentTypeHandler(request);
-    
+
                                 buffer = HandleHTTPRequest(request, response);
                             }
                             else
                             {
                                 if (DebugLevel >= 3)
                                     LogIncomingToXmlRpcHandler(request);
-    
+
                                 // generic login request.
                                 buffer = HandleXmlRpcRequests(request, response);
                             }
-    
+
                             break;
                     }
                 }
 
-                request.InputStream.Close();
+                if(request.InputStream.CanRead)
+                    request.InputStream.Dispose();
 
                 if (buffer != null)
                 {
@@ -759,7 +758,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                 // Every month or so this will wrap and give bad numbers, not really a problem
                 // since its just for reporting
                 int tickdiff = requestEndTick - requestStartTick;
-                if (tickdiff > 3000 && requestHandler != null && requestHandler.Name != "GetTexture")
+                if (tickdiff > 3000 && (requestHandler == null || requestHandler.Name == null || requestHandler.Name != "GetTexture"))
                 {
                     m_log.InfoFormat(
                         "[LOGHTTP] Slow handling of {0} {1} {2} {3} {4} from {5} took {6}ms",
@@ -970,7 +969,7 @@ namespace OpenSim.Framework.Servers.HttpServer
 //        private bool TryGetAgentHandler(OSHttpRequest request, OSHttpResponse response, out IHttpAgentHandler agentHandler)
 //        {
 //            agentHandler = null;
-//            
+//
 //            lock (m_agentHandlers)
 //            {
 //                foreach (IHttpAgentHandler handler in m_agentHandlers.Values)
@@ -996,7 +995,7 @@ namespace OpenSim.Framework.Servers.HttpServer
         {
             String requestBody;
 
-            Stream requestStream = request.InputStream;
+            Stream requestStream = Util.Copy(request.InputStream);
             Stream innerStream = null;
             try
             {
@@ -1007,9 +1006,8 @@ namespace OpenSim.Framework.Servers.HttpServer
                 }
 
                 using (StreamReader reader = new StreamReader(requestStream, Encoding.UTF8))
-                {
                     requestBody = reader.ReadToEnd();
-                }
+
             }
             finally
             {
@@ -1023,6 +1021,19 @@ namespace OpenSim.Framework.Servers.HttpServer
 
             string responseString = String.Empty;
             XmlRpcRequest xmlRprcRequest = null;
+
+            bool gridproxy = false;
+            if (requestBody.Contains("encoding=\"utf-8"))
+            {
+                int channelindx = -1;
+                int optionsindx = requestBody.IndexOf(">options<");
+                if(optionsindx >0)
+                {
+                    channelindx = requestBody.IndexOf(">channel<");
+                    if (optionsindx < channelindx)
+                        gridproxy = true;
+                }
+            }
 
             try
             {
@@ -1081,6 +1092,8 @@ namespace OpenSim.Framework.Servers.HttpServer
                         }
                         xmlRprcRequest.Params.Add(request.Headers.Get(xff)); // Param[3]
 
+                        if (gridproxy)
+                            xmlRprcRequest.Params.Add("gridproxy");  // Param[4]
                         try
                         {
                             xmlRpcResponse = method(xmlRprcRequest, request.RemoteIPEndPoint);
@@ -1154,7 +1167,7 @@ namespace OpenSim.Framework.Servers.HttpServer
             return buffer;
         }
 
-        // JsonRpc (v2.0 only) 
+        // JsonRpc (v2.0 only)
         // Batch requests not yet supported
         private byte[] HandleJsonRpcRequests(OSHttpRequest request, OSHttpResponse response)
         {
@@ -1171,7 +1184,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                 jsonRpcResponse.Error.Code = ErrorCode.InternalError;
                 jsonRpcResponse.Error.Message = e.Message;
             }
-            
+
             requestStream.Close();
 
             if (jsonRpcRequest != null)
@@ -1236,7 +1249,7 @@ namespace OpenSim.Framework.Servers.HttpServer
             string responseData = string.Empty;
 
             responseData = jsonRpcResponse.Serialize();
-       
+
             byte[] buffer = Encoding.UTF8.GetBytes(responseData);
             return buffer;
         }
@@ -1246,12 +1259,10 @@ namespace OpenSim.Framework.Servers.HttpServer
             //m_log.Warn("[BASE HTTP SERVER]: We've figured out it's a LLSD Request");
             Stream requestStream = request.InputStream;
 
+            string requestBody;
             Encoding encoding = Encoding.UTF8;
-            StreamReader reader = new StreamReader(requestStream, encoding);
-
-            string requestBody = reader.ReadToEnd();
-            reader.Close();
-            requestStream.Close();
+            using(StreamReader reader = new StreamReader(requestStream, encoding))
+                requestBody= reader.ReadToEnd();
 
             //m_log.DebugFormat("[OGP]: {0}:{1}", request.RawUrl, requestBody);
             response.KeepAlive = true;
@@ -1516,7 +1527,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                         }
                     }
                 }
-    
+
                 if (String.IsNullOrEmpty(bestMatch))
                 {
                     llsdHandler = null;
@@ -1575,15 +1586,10 @@ namespace OpenSim.Framework.Servers.HttpServer
             byte[] buffer;
 
             Stream requestStream = request.InputStream;
-
+            string requestBody;
             Encoding encoding = Encoding.UTF8;
-            StreamReader reader = new StreamReader(requestStream, encoding);
-
-            string requestBody = reader.ReadToEnd();
-            // avoid warning for now
-            reader.ReadToEnd();
-            reader.Close();
-            requestStream.Close();
+            using(StreamReader reader = new StreamReader(requestStream, encoding))
+                requestBody = reader.ReadToEnd();
 
             Hashtable keysvals = new Hashtable();
             Hashtable headervals = new Hashtable();
@@ -1732,10 +1738,40 @@ namespace OpenSim.Framework.Servers.HttpServer
 
         internal byte[] DoHTTPGruntWork(Hashtable responsedata, OSHttpResponse response)
         {
-            //m_log.Info("[BASE HTTP SERVER]: Doing HTTP Grunt work with response");
-            int responsecode = (int)responsedata["int_response_code"];
-            string responseString = (string)responsedata["str_response_string"];
-            string contentType = (string)responsedata["content_type"];
+            int responsecode;
+            string responseString = String.Empty;
+            byte[] responseData = null;
+            string contentType;
+
+            if (responsedata == null)
+            {
+                responsecode = 500;
+                responseString = "No response could be obtained";
+                contentType = "text/plain";
+                responsedata = new Hashtable();
+            }
+            else
+            {
+                try
+                {
+                    //m_log.Info("[BASE HTTP SERVER]: Doing HTTP Grunt work with response");
+                    responsecode = (int)responsedata["int_response_code"];
+                    if (responsedata["bin_response_data"] != null)
+                        responseData = (byte[])responsedata["bin_response_data"];
+                    else
+                        responseString = (string)responsedata["str_response_string"];
+                    contentType = (string)responsedata["content_type"];
+                    if (responseString == null)
+                        responseString = String.Empty;
+                }
+                catch
+                {
+                    responsecode = 500;
+                    responseString = "No response could be obtained";
+                    contentType = "text/plain";
+                    responsedata = new Hashtable();
+                }
+            }
 
             if (responsedata.ContainsKey("error_status_text"))
             {
@@ -1745,16 +1781,19 @@ namespace OpenSim.Framework.Servers.HttpServer
             {
                 response.ProtocolVersion = (string)responsedata["http_protocol_version"];
             }
-
+/*
             if (responsedata.ContainsKey("keepalive"))
             {
                 bool keepalive = (bool)responsedata["keepalive"];
                 response.KeepAlive = keepalive;
-
             }
 
             if (responsedata.ContainsKey("reusecontext"))
                 response.ReuseContext = (bool) responsedata["reusecontext"];
+*/
+            // disable this things
+            response.KeepAlive = false;
+            response.ReuseContext = false;
 
             // Cross-Origin Resource Sharing with simple requests
             if (responsedata.ContainsKey("access_control_allow_origin"))
@@ -1768,7 +1807,10 @@ namespace OpenSim.Framework.Servers.HttpServer
                 contentType = "text/html";
             }
 
+
+
             // The client ignores anything but 200 here for web login, so ensure that this is 200 for that
+
 
             response.StatusCode = responsecode;
 
@@ -1780,25 +1822,40 @@ namespace OpenSim.Framework.Servers.HttpServer
 
             response.AddHeader("Content-Type", contentType);
 
+            if (responsedata.ContainsKey("headers"))
+            {
+                Hashtable headerdata = (Hashtable)responsedata["headers"];
+
+                foreach (string header in headerdata.Keys)
+                    response.AddHeader(header, headerdata[header].ToString());
+            }
+
             byte[] buffer;
 
-            if (!(contentType.Contains("image")
-                || contentType.Contains("x-shockwave-flash")
-                || contentType.Contains("application/x-oar")
-                || contentType.Contains("application/vnd.ll.mesh")))
+            if (responseData != null)
             {
-                // Text
-                buffer = Encoding.UTF8.GetBytes(responseString);
+                buffer = responseData;
             }
             else
             {
-                // Binary!
-                buffer = Convert.FromBase64String(responseString);
-            }
+                if (!(contentType.Contains("image")
+                    || contentType.Contains("x-shockwave-flash")
+                    || contentType.Contains("application/x-oar")
+                    || contentType.Contains("application/vnd.ll.mesh")))
+                {
+                    // Text
+                    buffer = Encoding.UTF8.GetBytes(responseString);
+                }
+                else
+                {
+                    // Binary!
+                    buffer = Convert.FromBase64String(responseString);
+                }
 
-            response.SendChunked = false;
-            response.ContentLength64 = buffer.Length;
-            response.ContentEncoding = Encoding.UTF8;
+                response.SendChunked = false;
+                response.ContentLength64 = buffer.Length;
+                response.ContentEncoding = Encoding.UTF8;
+            }
 
             return buffer;
         }
@@ -1831,8 +1888,8 @@ namespace OpenSim.Framework.Servers.HttpServer
             response.SendChunked = false;
             response.ContentLength64 = buffer.Length;
             response.ContentEncoding = Encoding.UTF8;
-            
-                
+
+
             return buffer;
         }
 
@@ -1886,7 +1943,8 @@ namespace OpenSim.Framework.Servers.HttpServer
                 m_httpListener2.Start(64);
 
                 // Long Poll Service Manager with 3 worker threads a 25 second timeout for no events
-                PollServiceRequestManager = new PollServiceRequestManager(this, performPollResponsesAsync, 3, 25000);
+
+                PollServiceRequestManager = new PollServiceRequestManager(this, performPollResponsesAsync, 2, 25000);
                 PollServiceRequestManager.Start();
 
                 HTTPDRunning = true;
@@ -1908,7 +1966,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                 throw e;
             }
 
-            m_requestsProcessedStat 
+            m_requestsProcessedStat
                 = new Stat(
                     "HTTPRequestsServed",
                     "Number of inbound HTTP requests processed",
@@ -1920,7 +1978,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                     MeasuresOfInterest.AverageChangeOverTime,
                     stat => stat.Value = RequestNumber,
                     StatVerbosity.Debug);
-          
+
             StatsManager.RegisterStat(m_requestsProcessedStat);
         }
 
@@ -1937,7 +1995,9 @@ namespace OpenSim.Framework.Servers.HttpServer
 
         public void httpServerException(object source, Exception exception)
         {
-            m_log.Error(String.Format("[BASE HTTP SERVER]: {0} had an exception: {1} ", source.ToString(), exception.Message), exception);
+            if (source.ToString() == "HttpServer.HttpListener" && exception.ToString().StartsWith("Mono.Security.Protocol.Tls.TlsException"))
+                return;
+            m_log.ErrorFormat("[BASE HTTP SERVER]: {0} had an exception {1}", source.ToString(), exception.ToString());
            /*
             if (HTTPDRunning)// && NotSocketErrors > 5)
             {
@@ -1957,7 +2017,8 @@ namespace OpenSim.Framework.Servers.HttpServer
 
             try
             {
-                PollServiceRequestManager.Stop();
+                if(PollServiceRequestManager != null)
+                    PollServiceRequestManager.Stop();
 
                 m_httpListener2.ExceptionThrown -= httpServerException;
                 //m_httpListener2.DisconnectHandler = null;
@@ -1984,6 +2045,7 @@ namespace OpenSim.Framework.Servers.HttpServer
 
         public void RemoveHTTPHandler(string httpMethod, string path)
         {
+            if (path == null) return; // Caps module isn't loaded, tries to remove handler where path = null
             lock (m_HTTPHandlers)
             {
                 if (httpMethod != null && httpMethod.Length == 0)

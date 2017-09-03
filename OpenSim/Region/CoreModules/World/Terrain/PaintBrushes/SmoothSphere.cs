@@ -34,23 +34,27 @@ namespace OpenSim.Region.CoreModules.World.Terrain.PaintBrushes
     {
         #region ITerrainPaintableEffect Members
 
-        public void PaintEffect(ITerrainChannel map, bool[,] mask, double rx, double ry, double rz, double strength, double duration)
+        public void PaintEffect(ITerrainChannel map, bool[,] mask, double rx, double ry, double rz,
+            double strength, double duration, int startX, int endX, int startY, int endY)
         {
             strength = TerrainUtil.MetersToSphericalStrength(strength);
 
             int x, y;
             double[,] tweak = new double[map.Width,map.Height];
 
-            double area = strength; 
+            double area = strength;
             double step = strength / 4.0;
             duration = 0.03; //MCP Should be read from ini file
- 
+
 
             // compute delta map
-            for (x = 0; x < map.Width; x++)
+            for (x = startX; x <= endX; x++)
             {
-                for (y = 0; y < map.Height; y++)
+                for (y = startY; y <= endY; y++)
                 {
+                    if (!mask[x, y])
+                        continue;
+
                     double z = TerrainUtil.SphericalFactor(x, y, rx, ry, strength);
 
                     if (z > 0) // add in non-zero amount
@@ -73,11 +77,11 @@ namespace OpenSim.Region.CoreModules.World.Terrain.PaintBrushes
                 }
             }
             // blend in map
-            for (x = 0; x < map.Width; x++)
+            for (x = startX; x <= endX; x++)
             {
-                for (y = 0; y < map.Height; y++)
+                for (y = startY; y <= endY; y++)
                 {
-                    if (!mask[x,y])
+                    if (!mask[x, y])
                         continue;
 
                     double z = TerrainUtil.SphericalFactor(x, y, rx, ry, strength);

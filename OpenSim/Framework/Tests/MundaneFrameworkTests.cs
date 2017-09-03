@@ -110,13 +110,14 @@ namespace OpenSim.Framework.Tests
                 && position2.Center == position1.Center
                 && position2.RegionHandle == position1.RegionHandle
                 && position2.Far == position1.Far
-               
+
                 ,"Copy From ChildAgentDataUpdate failed");
 
             position2 = new AgentPosition();
 
             Assert.IsFalse(position2.AgentID == position1.AgentID, "Test Error, position2 should be a blank uninitialized AgentPosition");
-            position2.Unpack(position1.Pack(), null);
+            EntityTransferContext ctx = new EntityTransferContext();
+            position2.Unpack(position1.Pack(ctx), null, ctx);
 
             Assert.IsTrue(position2.AgentID == position1.AgentID, "Agent ID didn't unpack the same way it packed");
             Assert.IsTrue(position2.Position == position1.Position, "Position didn't unpack the same way it packed");
@@ -147,13 +148,13 @@ namespace OpenSim.Framework.Tests
 //            string time = settings.LoadedCreationTime;
 
             Assert.That(m_RegionSettingsOnSaveEventFired, "RegionSettings Save Event didn't Fire");
-            
+
         }
         public void RegionSaveFired(RegionSettings settings)
         {
             m_RegionSettingsOnSaveEventFired = true;
         }
-        
+
         [Test]
         public void InventoryItemBaseConstructorTest01()
         {
@@ -163,7 +164,7 @@ namespace OpenSim.Framework.Tests
 
             UUID ItemID = UUID.Random();
             UUID OwnerID = UUID.Random();
-            
+
             InventoryItemBase b2 = new InventoryItemBase(ItemID);
             Assert.That(b2.ID == ItemID, "ID constructor should create an inventory item with ID = ItemID");
             Assert.That(b2.Owner == UUID.Zero, "ID constructor  should create an inventory item with Owner = UUID.Zero");
@@ -218,12 +219,12 @@ namespace OpenSim.Framework.Tests
                               BannedHostNameMask = string.Empty,
                               BannedUserID = bannedUserId}
                           );
-            Assert.IsTrue(es.IsBanned(bannedUserId), "User Should be banned but is not.");
-            Assert.IsFalse(es.IsBanned(UUID.Zero), "User Should not be banned but is.");
+            Assert.IsTrue(es.IsBanned(bannedUserId, 32), "User Should be banned but is not.");
+            Assert.IsFalse(es.IsBanned(UUID.Zero, 32), "User Should not be banned but is.");
 
             es.RemoveBan(bannedUserId);
 
-            Assert.IsFalse(es.IsBanned(bannedUserId), "User Should not be banned but is.");
+            Assert.IsFalse(es.IsBanned(bannedUserId, 32), "User Should not be banned but is.");
 
             es.AddEstateManager(UUID.Zero);
 
@@ -267,7 +268,7 @@ namespace OpenSim.Framework.Tests
             Assert.That(fld.ID == uuid1, "ID,Owner constructor failed to save value in ID field.");
             Assert.That(fld.Owner == uuid2, "ID,Owner constructor failed to save value in ID field.");
         }
-        
+
         [Test]
         public void AsssetBaseConstructorTest01()
         {
@@ -303,6 +304,6 @@ namespace OpenSim.Framework.Tests
             Culture.SetCurrentCulture();
             Assert.That(Thread.CurrentThread.CurrentCulture.Name == ci.Name, "SetCurrentCulture failed to set thread culture to en-US");
 
-        }     
+        }
     }
 }

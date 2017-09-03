@@ -36,8 +36,8 @@ namespace OpenSim.Region.Framework.Interfaces
     /// <summary>
     /// Interface to an entity's (SceneObjectPart's) inventory
     /// </summary>
-    /// 
-    /// This is not a finished 1.0 candidate interface 
+    ///
+    /// This is not a finished 1.0 candidate interface
     public interface IEntityInventory
     {
         /// <summary>
@@ -48,21 +48,21 @@ namespace OpenSim.Region.Framework.Interfaces
         /// <summary>
         /// Reset UUIDs for all the items in the prim's inventory.
         /// </summary>
-        /// 
+        ///
         /// This involves either generating
         /// new ones or setting existing UUIDs to the correct parent UUIDs.
         ///
         /// If this method is called and there are inventory items, then we regard the inventory as having changed.
-        /// 
+        ///
         /// <param name="linkNum">Link number for the part</param>
         void ResetInventoryIDs();
 
         /// <summary>
         /// Reset parent object UUID for all the items in the prim's inventory.
         /// </summary>
-        /// 
+        ///
         /// If this method is called and there are inventory items, then we regard the inventory as having changed.
-        /// 
+        ///
         /// <param name="linkNum">Link number for the part</param>
         void ResetObjectID();
 
@@ -87,7 +87,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// <param name="stateSource"></param>
         /// <returns>Number of scripts started.</returns>
         int CreateScriptInstances(int startParam, bool postOnRez, string engine, int stateSource);
-        
+
         ArrayList GetScriptErrors(UUID itemID);
         void ResumeScripts();
 
@@ -132,6 +132,8 @@ namespace OpenSim.Region.Framework.Interfaces
         /// that the script was actually started, just that the script was valid (i.e. its asset data could be found, etc.)
         /// </returns>
         bool CreateScriptInstance(UUID itemId, int startParam, bool postOnRez, string engine, int stateSource);
+
+        ArrayList CreateScriptInstanceEr(UUID itemId, int startParam, bool postOnRez, string engine, int stateSource);
 
         /// <summary>
         /// Stop and remove a script which is in this prim's inventory from the scene.
@@ -236,15 +238,15 @@ namespace OpenSim.Region.Framework.Interfaces
         /// <summary>
         /// Get the scene object(s) referenced by an inventory item.
         /// </summary>
-        /// 
+        ///
         /// This is returned in a 'rez ready' state.  That is, name, description, permissions and other details have
         /// been adjusted to reflect the part and item from which it originates.
-        /// 
+        ///
         /// <param name="item">Inventory item</param>
         /// <param name="objlist">The scene objects</param>
         /// <param name="veclist">Relative offsets for each object</param>
         /// <returns>true = success, false = the scene object asset couldn't be found</returns>
-        bool GetRezReadySceneObjects(TaskInventoryItem item, out List<SceneObjectGroup> objlist, out List<Vector3> veclist);
+        bool GetRezReadySceneObjects(TaskInventoryItem item, out List<SceneObjectGroup> objlist, out List<Vector3> veclist, out Vector3 bbox, out float offsetHeight);
 
         /// <summary>
         /// Update an existing inventory item.
@@ -275,6 +277,8 @@ namespace OpenSim.Region.Framework.Interfaces
         /// </summary>
         /// <param name="datastore"></param>
         void ProcessInventoryBackup(ISimulationDataService datastore);
+
+        void AggregateInnerPerms(ref uint owner, ref uint group, ref uint everyone);
 
         uint MaskEffectivePermissions();
 
@@ -310,7 +314,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// </summary>
         /// <returns></returns>
         List<UUID> GetInventoryList();
-        
+
         /// <summary>
         /// Get the xml representing the saved states of scripts in this inventory.
         /// </summary>
@@ -318,5 +322,6 @@ namespace OpenSim.Region.Framework.Interfaces
         /// A <see cref="Dictionary`2"/>
         /// </returns>
         Dictionary<UUID, string> GetScriptStates();
+        Dictionary<UUID, string> GetScriptStates(bool oldIDs);
     }
 }

@@ -88,7 +88,7 @@ namespace OpenSim.Framework.Monitoring
             IConfig cfg = source.Configs["Monitoring"];
 
             if (cfg != null)
-                Enabled = cfg.GetBoolean("ServerStatsEnabled", true);
+                Enabled = cfg.GetBoolean("ServerStatsEnabled", false);
 
             if (Enabled)
             {
@@ -98,12 +98,18 @@ namespace OpenSim.Framework.Monitoring
 
         public void Start()
         {
+            if(!Enabled)
+                return;
+
             if (RegisteredStats.Count == 0)
                 RegisterServerStats();
         }
 
         public void Close()
         {
+            if(!Enabled)
+                return;
+
             if (RegisteredStats.Count > 0)
             {
                 foreach (Stat stat in RegisteredStats.Values)
@@ -167,18 +173,18 @@ namespace OpenSim.Framework.Monitoring
             }
 
             MakeStat("BuiltinThreadpoolWorkerThreadsAvailable", null, "threads", ContainerThreadpool,
-                s => 
-                { 
-                    int workerThreads, iocpThreads; 
-                    ThreadPool.GetAvailableThreads(out workerThreads, out iocpThreads); 
+                s =>
+                {
+                    int workerThreads, iocpThreads;
+                    ThreadPool.GetAvailableThreads(out workerThreads, out iocpThreads);
                     s.Value = workerThreads;
                 });
 
             MakeStat("BuiltinThreadpoolIOCPThreadsAvailable", null, "threads", ContainerThreadpool,
-                s => 
-                { 
-                    int workerThreads, iocpThreads; 
-                    ThreadPool.GetAvailableThreads(out workerThreads, out iocpThreads); 
+                s =>
+                {
+                    int workerThreads, iocpThreads;
+                    ThreadPool.GetAvailableThreads(out workerThreads, out iocpThreads);
                     s.Value = iocpThreads;
                 });
 
@@ -193,10 +199,10 @@ namespace OpenSim.Framework.Monitoring
             }
 
             MakeStat(
-                "HTTPRequestsMade", 
-                "Number of outbound HTTP requests made", 
-                "requests", 
-                ContainerNetwork, 
+                "HTTPRequestsMade",
+                "Number of outbound HTTP requests made",
+                "requests",
+                ContainerNetwork,
                 s => s.Value = WebUtil.RequestNumber,
                 MeasuresOfInterest.AverageChangeOverTime);
 
@@ -249,9 +255,52 @@ namespace OpenSim.Framework.Monitoring
                                 (s) => { s.Value = Math.Round(MemoryWatchdog.LastHeapAllocationRate * 1000d / 1024d / 1024d, 3); });
             MakeStat("AverageHeapAllocationRate", null, "MB/sec", ContainerMemory,
                                 (s) => { s.Value = Math.Round(MemoryWatchdog.AverageHeapAllocationRate * 1000d / 1024d / 1024d, 3); });
+
+            MakeStat("ProcessResident", null, "MB", ContainerProcess,
+                                (s) =>
+                                {
+                                    Process myprocess = Process.GetCurrentProcess();
+                                    myprocess.Refresh();
+                                    s.Value = Math.Round(Process.GetCurrentProcess().WorkingSet64 / 1024.0 / 1024.0);
+                                });
+            MakeStat("ProcessPaged", null, "MB", ContainerProcess,
+                                (s) =>
+                                {
+                                    Process myprocess = Process.GetCurrentProcess();
+                                    myprocess.Refresh();
+                                    s.Value = Math.Round(Process.GetCurrentProcess().PagedMemorySize64 / 1024.0 / 1024.0);
+                                });
+            MakeStat("ProcessVirtual", null, "MB", ContainerProcess,
+                                (s) =>
+                                {
+                                    Process myprocess = Process.GetCurrentProcess();
+                                    myprocess.Refresh();
+                                    s.Value = Math.Round(Process.GetCurrentProcess().VirtualMemorySize64 / 1024.0 / 1024.0);
+                                });
+            MakeStat("PeakProcessResident", null, "MB", ContainerProcess,
+                                (s) =>
+                                {
+                                    Process myprocess = Process.GetCurrentProcess();
+                                    myprocess.Refresh();
+                                    s.Value = Math.Round(Process.GetCurrentProcess().PeakWorkingSet64 / 1024.0 / 1024.0);
+                                });
+            MakeStat("PeakProcessPaged", null, "MB", ContainerProcess,
+                                (s) =>
+                                {
+                                    Process myprocess = Process.GetCurrentProcess();
+                                    myprocess.Refresh();
+                                    s.Value = Math.Round(Process.GetCurrentProcess().PeakPagedMemorySize64 / 1024.0 / 1024.0);
+                                });
+            MakeStat("PeakProcessVirtual", null, "MB", ContainerProcess,
+                                (s) =>
+                                {
+                                    Process myprocess = Process.GetCurrentProcess();
+                                    myprocess.Refresh();
+                                    s.Value = Math.Round(Process.GetCurrentProcess().PeakVirtualMemorySize64 / 1024.0 / 1024.0);
+                                });
         }
 
-        // Notes on performance counters: 
+        // Notes on performance counters:
         //  "How To Read Performance Counters": http://blogs.msdn.com/b/bclteam/archive/2006/06/02/618156.aspx
         //  "How to get the CPU Usage in C#": http://stackoverflow.com/questions/278071/how-to-get-the-cpu-usage-in-c
         //  "Mono Performance Counters": http://www.mono-project.com/Mono_Performance_Counters

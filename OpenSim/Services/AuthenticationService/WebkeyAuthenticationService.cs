@@ -40,7 +40,7 @@ namespace OpenSim.Services.AuthenticationService
     // Generic Authentication service used for identifying
     // and authenticating principals.
     // Principals may be clients acting on users' behalf,
-    // or any other components that need 
+    // or any other components that need
     // verifiable identification.
     //
     public class WebkeyAuthenticationService :
@@ -50,9 +50,20 @@ namespace OpenSim.Services.AuthenticationService
                 LogManager.GetLogger(
                 MethodBase.GetCurrentMethod().DeclaringType);
 
+        public WebkeyAuthenticationService(IConfigSource config, IUserAccountService userService) :
+                base(config, userService)
+        {
+        }
+
         public WebkeyAuthenticationService(IConfigSource config) :
             base(config)
         {
+        }
+
+        public string Authenticate(UUID principalID, string password, int lifetime, out UUID realID)
+        {
+            realID = UUID.Zero;
+            return Authenticate(principalID, password, lifetime);
         }
 
         public string Authenticate(UUID principalID, string password, int lifetime)
@@ -68,7 +79,7 @@ namespace OpenSim.Services.AuthenticationService
                 {
                     if (data.Data.ContainsKey("webLoginKey"))
                     {
-						string key = data.Data["webLoginKey"].ToString();
+                        string key = data.Data["webLoginKey"].ToString();
                         if (key == password)
                         {
                             data.Data["webLoginKey"] = UUID.Zero.ToString();

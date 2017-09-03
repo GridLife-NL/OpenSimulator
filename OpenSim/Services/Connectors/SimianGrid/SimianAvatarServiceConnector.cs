@@ -146,13 +146,14 @@ namespace OpenSim.Services.Connectors.SimianGrid
                              userID,response["Message"].AsString());
             return null;
         }
-        
+
         // <summary>
         // </summary>
         // <param name=""></param>
         public bool SetAppearance(UUID userID, AvatarAppearance appearance)
         {
-            OSDMap map = appearance.Pack();
+            EntityTransferContext ctx = new EntityTransferContext();
+            OSDMap map = appearance.Pack(ctx);
             if (map == null)
             {
                 m_log.WarnFormat("[SIMIAN AVATAR CONNECTOR]: Failed to encode appearance for {0}",userID);
@@ -177,7 +178,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
 
             return success;
         }
-            
+
         // <summary>
         // </summary>
         // <param name=""></param>
@@ -218,7 +219,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
                     appearance.AvatarHeight = (float)map["Height"].AsReal();
 
                     AvatarData avatar = new AvatarData(appearance);
-                    
+
                     // Get attachments
                     map = null;
                     try { map = OSDParser.DeserializeJson(response["LLAttachments"].AsString()) as OSDMap; }
@@ -229,7 +230,7 @@ namespace OpenSim.Services.Connectors.SimianGrid
                         foreach (KeyValuePair<string, OSD> kvp in map)
                             avatar.Data[kvp.Key] = kvp.Value.AsString();
                     }
-                
+
                     return avatar;
                 }
                 else

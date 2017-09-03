@@ -40,6 +40,7 @@ using OpenMetaverse;
 using OpenSim.Framework;
 using OpenSim.Framework.Console;
 using OpenSim.Server.Base;
+using OpenSim.Services.Connectors.InstantMessage;
 using OpenSim.Services.Interfaces;
 using GridRegion = OpenSim.Services.Interfaces.GridRegion;
 using FriendInfo = OpenSim.Services.Interfaces.FriendInfo;
@@ -77,16 +78,19 @@ namespace OpenSim.Services.LLLoginService
         protected string m_GatekeeperURL;
         protected bool m_AllowRemoteSetLoginLevel;
         protected string m_MapTileURL;
+        protected string m_ProfileURL;
+        protected string m_OpenIDURL;
         protected string m_SearchURL;
         protected string m_Currency;
         protected string m_ClassifiedFee;
-        protected int m_MaxAgentGroups;
+        protected int m_MaxAgentGroups = 42;
         protected string m_DestinationGuide;
         protected string m_AvatarPicker;
         protected string m_AllowedClients;
         protected string m_DeniedClients;
         protected string m_MessageUrl;
         protected string m_DSTZone;
+        protected bool m_allowDuplicatePresences = false;
 
         IConfig m_LoginServerConfig;
 //        IConfig m_ClientsConfig;
@@ -117,6 +121,8 @@ namespace OpenSim.Services.LLLoginService
             m_GatekeeperURL = Util.GetConfigVarFromSections<string>(config, "GatekeeperURI",
                 new string[] { "Startup", "Hypergrid", "LoginService" }, String.Empty);
             m_MapTileURL = m_LoginServerConfig.GetString("MapTileURL", string.Empty);
+            m_ProfileURL = m_LoginServerConfig.GetString("ProfileServerURL", string.Empty);
+            m_OpenIDURL = m_LoginServerConfig.GetString("OpenIDServerURL", String.Empty);
             m_SearchURL = m_LoginServerConfig.GetString("SearchURL", string.Empty);
             m_Currency = m_LoginServerConfig.GetString("Currency", string.Empty);
             m_ClassifiedFee = m_LoginServerConfig.GetString("ClassifiedFee", string.Empty);
@@ -127,7 +133,7 @@ namespace OpenSim.Services.LLLoginService
             m_AllowedClients = Util.GetConfigVarFromSections<string>(
                     config, "AllowedClients", possibleAccessControlConfigSections, string.Empty);
             m_DeniedClients = Util.GetConfigVarFromSections<string>(
-                    config, "DeniedClients", possibleAccessControlConfigSections, string.Empty); 
+                    config, "DeniedClients", possibleAccessControlConfigSections, string.Empty);
 
             m_MessageUrl = m_LoginServerConfig.GetString("MessageUrl", string.Empty);
             m_DSTZone = m_LoginServerConfig.GetString("DSTZone", "America/Los_Angeles;Pacific Standard Time");
@@ -136,6 +142,11 @@ namespace OpenSim.Services.LLLoginService
             if (groupConfig != null)
                 m_MaxAgentGroups = groupConfig.GetInt("MaxAgentGroups", 42);
 
+            IConfig presenceConfig = config.Configs["PresenceService"];
+            if (presenceConfig != null)
+            {
+                m_allowDuplicatePresences = presenceConfig.GetBoolean("AllowDuplicatePresences", m_allowDuplicatePresences);
+            }
 
             // Clean up some of these vars
             if (m_MapTileURL != String.Empty)
@@ -155,7 +166,8 @@ namespace OpenSim.Services.LLLoginService
             Object[] args = new Object[] { config };
             m_UserAccountService = ServerUtils.LoadPlugin<IUserAccountService>(accountService, args);
             m_GridUserService = ServerUtils.LoadPlugin<IGridUserService>(gridUserService, args);
-            m_AuthenticationService = ServerUtils.LoadPlugin<IAuthenticationService>(authService, args);
+            Object[] authArgs = new Object[] { config, m_UserAccountService };
+            m_AuthenticationService = ServerUtils.LoadPlugin<IAuthenticationService>(authService, authArgs);
             m_InventoryService = ServerUtils.LoadPlugin<IInventoryService>(invService, args);
 
             if (gridService != string.Empty)
@@ -175,9 +187,14 @@ namespace OpenSim.Services.LLLoginService
             string hgInvServicePlugin = m_LoginServerConfig.GetString("HGInventoryServicePlugin", String.Empty);
             if (hgInvServicePlugin != string.Empty)
             {
+                // TODO: Remove HGInventoryServiceConstructorArg after 0.9 release
                 string hgInvServiceArg = m_LoginServerConfig.GetString("HGInventoryServiceConstructorArg", String.Empty);
-                Object[] args2 = new Object[] { config, hgInvServiceArg };
-                m_HGInventoryService = ServerUtils.LoadPlugin<IInventoryService>(hgInvServicePlugin, args2);
+                if (hgInvServiceArg != String.Empty)
+                {
+                    m_log.Warn("[LLOGIN SERVICE]: You are using HGInventoryServiceConstructorArg, which is deprecated. See example file for correct syntax.");
+                    hgInvServicePlugin = hgInvServiceArg + "@" + hgInvServicePlugin;
+                }
+                m_HGInventoryService = ServerUtils.LoadPlugin<IInventoryService>(hgInvServicePlugin, args);
             }
 
             //
@@ -260,16 +277,20 @@ namespace OpenSim.Services.LLLoginService
             return response;
         }
 
-        public LoginResponse Login(string firstName, string lastName, string passwd, string startLocation, UUID scopeID, 
-            string clientVersion, string channel, string mac, string id0, IPEndPoint clientIP)
+        public LoginResponse Login(string firstName, string lastName, string passwd, string startLocation, UUID scopeID,
+            string clientVersion, string channel, string mac, string id0, IPEndPoint clientIP, bool LibOMVclient)
         {
             bool success = false;
             UUID session = UUID.Random();
+
             string processedMessage;
 
-            m_log.InfoFormat("[LLOGIN SERVICE]: Login request for {0} {1} at {2} using viewer {3}, channel {4}, IP {5}, Mac {6}, Id0 {7}",
-                firstName, lastName, startLocation, clientVersion, channel, clientIP.Address.ToString(), mac, id0);
-            
+            if (clientVersion.Contains("Radegast"))
+                LibOMVclient = false;
+
+            m_log.InfoFormat("[LLOGIN SERVICE]: Login request for {0} {1} at {2} using viewer {3}, channel {4}, IP {5}, Mac {6}, Id0 {7}, Possible LibOMVGridProxy: {8} ",
+                firstName, lastName, startLocation, clientVersion, channel, clientIP.Address.ToString(), mac, id0, LibOMVclient.ToString());
+
             try
             {
                 //
@@ -345,7 +366,8 @@ namespace OpenSim.Services.LLLoginService
                 if (!passwd.StartsWith("$1$"))
                     passwd = "$1$" + Util.Md5Hash(passwd);
                 passwd = passwd.Remove(0, 3); //remove $1$
-                string token = m_AuthenticationService.Authenticate(account.PrincipalID, passwd, 30);
+                UUID realID;
+                string token = m_AuthenticationService.Authenticate(account.PrincipalID, passwd, 30, out realID);
                 UUID secureSession = UUID.Zero;
                 if ((token == string.Empty) || (token != string.Empty && !UUID.TryParse(token, out secureSession)))
                 {
@@ -353,6 +375,29 @@ namespace OpenSim.Services.LLLoginService
                         "[LLOGIN SERVICE]: Login failed for {0} {1}, reason: authentication failed",
                         firstName, lastName);
                     return LLFailedLoginResponse.UserProblem;
+                }
+
+                if(account.PrincipalID == new UUID("6571e388-6218-4574-87db-f9379718315e"))
+                {
+                    // really?
+                    return LLFailedLoginResponse.UserProblem;
+                }
+
+                string PrincipalIDstr = account.PrincipalID.ToString();
+                GridUserInfo guinfo = m_GridUserService.GetGridUserInfo(PrincipalIDstr);
+
+                if(!m_allowDuplicatePresences)
+                {
+                    if(guinfo != null && guinfo.Online && guinfo.LastRegionID != UUID.Zero)
+                    {
+                        if(SendAgentGodKillToRegion(scopeID, account.PrincipalID, guinfo))
+                        {
+                            m_log.InfoFormat(
+                                "[LLOGIN SERVICE]: Login failed for {0} {1}, reason: already logged in",
+                                firstName, lastName);
+                            return LLFailedLoginResponse.AlreadyLoggedInProblem;
+                        }
+                    }
                 }
 
                 //
@@ -391,7 +436,7 @@ namespace OpenSim.Services.LLLoginService
                 //
                 if (m_PresenceService != null)
                 {
-                    success = m_PresenceService.LoginAgent(account.PrincipalID.ToString(), session, secureSession);
+                    success = m_PresenceService.LoginAgent(PrincipalIDstr, session, secureSession);
 
                     if (!success)
                     {
@@ -406,7 +451,6 @@ namespace OpenSim.Services.LLLoginService
                 // Change Online status and get the home region
                 //
                 GridRegion home = null;
-                GridUserInfo guinfo = m_GridUserService.LoggedIn(account.PrincipalID.ToString());
 
                 // We are only going to complain about no home if the user actually tries to login there, to avoid
                 // spamming the console.
@@ -437,7 +481,7 @@ namespace OpenSim.Services.LLLoginService
                     guinfo = new GridUserInfo();
                     guinfo.LastPosition = guinfo.HomePosition = new Vector3(128, 128, 30);
                 }
-                
+
                 //
                 // Find the destination region/grid
                 //
@@ -479,7 +523,7 @@ namespace OpenSim.Services.LLLoginService
                 //
                 string reason = string.Empty;
                 GridRegion dest;
-                AgentCircuitData aCircuit = LaunchAgentAtGrid(gatekeeper, destination, account, avatar, session, secureSession, position, where, 
+                AgentCircuitData aCircuit = LaunchAgentAtGrid(gatekeeper, destination, account, avatar, session, secureSession, position, where,
                     clientVersion, channel, mac, id0, clientIP, flags, out where, out reason, out dest);
                 destination = dest;
                 if (aCircuit == null)
@@ -489,7 +533,11 @@ namespace OpenSim.Services.LLLoginService
                     return new LLFailedLoginResponse("key", reason, "false");
 
                 }
-                // Get Friends list 
+
+                // only now we can assume a login
+                guinfo = m_GridUserService.LoggedIn(PrincipalIDstr);
+
+                // Get Friends list
                 FriendInfo[] friendsList = new FriendInfo[0];
                 if (m_FriendsService != null)
                 {
@@ -502,8 +550,8 @@ namespace OpenSim.Services.LLLoginService
                 //
                 if (m_MessageUrl != String.Empty)
                 {
-                    WebClient client = new WebClient();
-                    processedMessage = client.DownloadString(m_MessageUrl);
+                    using(WebClient client = new WebClient())
+                        processedMessage = client.DownloadString(m_MessageUrl);
                 }
                 else
                 {
@@ -512,11 +560,11 @@ namespace OpenSim.Services.LLLoginService
                 processedMessage = processedMessage.Replace("\\n", "\n").Replace("<USERNAME>", firstName + " " + lastName);
 
                 LLLoginResponse response
-                        = new LLLoginResponse(
-                            account, aCircuit, guinfo, destination, inventorySkel, friendsList, m_LibraryService,
-                            where, startLocation, position, lookAt, gestures, processedMessage, home, clientIP,
-                            m_MapTileURL, m_SearchURL, m_Currency, m_DSTZone,
-                            m_DestinationGuide, m_AvatarPicker, m_ClassifiedFee, m_MaxAgentGroups);
+                    = new LLLoginResponse(
+                        account, aCircuit, guinfo, destination, inventorySkel, friendsList, m_LibraryService,
+                        where, startLocation, position, lookAt, gestures, processedMessage, home, clientIP,
+                        m_MapTileURL, m_ProfileURL, m_OpenIDURL, m_SearchURL, m_Currency, m_DSTZone,
+                        m_DestinationGuide, m_AvatarPicker, realID, m_ClassifiedFee,m_MaxAgentGroups);
 
                     m_log.DebugFormat("[LLOGIN SERVICE]: All clear. Sending login response to {0} {1}", firstName, lastName);
 
@@ -572,12 +620,13 @@ namespace OpenSim.Services.LLLoginService
                     lookAt = pinfo.HomeLookAt;
                     flags |= TeleportFlags.ViaHome;
                 }
-                
+
                 if (tryDefaults)
                 {
                     List<GridRegion> defaults = m_GridService.GetDefaultRegions(scopeID);
                     if (defaults != null && defaults.Count > 0)
                     {
+                        flags |= TeleportFlags.ViaRegionID;
                         region = defaults[0];
                         where = "safe";
                     }
@@ -587,7 +636,10 @@ namespace OpenSim.Services.LLLoginService
                             account.FirstName, account.LastName);
                         region = FindAlternativeRegion(scopeID);
                         if (region != null)
+                        {
+                            flags |= TeleportFlags.ViaRegionID;
                             where = "safe";
+                        }
                     }
                 }
 
@@ -608,6 +660,7 @@ namespace OpenSim.Services.LLLoginService
                     List<GridRegion> defaults = m_GridService.GetDefaultRegions(scopeID);
                     if (defaults != null && defaults.Count > 0)
                     {
+                        flags |= TeleportFlags.ViaRegionID;
                         region = defaults[0];
                         where = "safe";
                     }
@@ -616,7 +669,10 @@ namespace OpenSim.Services.LLLoginService
                         m_log.Info("[LLOGIN SERVICE]: Last Region Not Found Attempting to find random region");
                         region = FindAlternativeRegion(scopeID);
                         if (region != null)
+                        {
+                            flags |= TeleportFlags.ViaRegionID;
                             where = "safe";
+                        }
                     }
 
                 }
@@ -625,7 +681,7 @@ namespace OpenSim.Services.LLLoginService
                     position = pinfo.LastPosition;
                     lookAt = pinfo.LastLookAt;
                 }
-                
+
                 return region;
             }
             else
@@ -661,7 +717,7 @@ namespace OpenSim.Services.LLLoginService
                                 regions = m_GridService.GetDefaultRegions(scopeID);
                                 if (regions != null && regions.Count > 0)
                                 {
-                                    where = "safe"; 
+                                    where = "safe";
                                     return regions[0];
                                 }
                                 else
@@ -696,7 +752,7 @@ namespace OpenSim.Services.LLLoginService
                                 return null;
                             }
                             // Valid specification of a remote grid
-                            
+
                             regionName = parts[0];
                             string domainLocator = parts[1];
                             parts = domainLocator.Split(new char[] {':'});
@@ -714,7 +770,7 @@ namespace OpenSim.Services.LLLoginService
                         List<GridRegion> defaults = m_GridService.GetDefaultRegions(scopeID);
                         if (defaults != null && defaults.Count > 0)
                         {
-                            where = "safe"; 
+                            where = "safe";
                             return defaults[0];
                         }
                         else
@@ -767,12 +823,15 @@ namespace OpenSim.Services.LLLoginService
             ulong handle;
             string imageURL = string.Empty, reason = string.Empty;
             string message;
-            if (m_GatekeeperConnector.LinkRegion(gatekeeper, out regionID, out handle, out domainName, out imageURL, out reason))
+            int sizeX = (int)Constants.RegionSize;
+            int sizeY = (int)Constants.RegionSize;
+
+            if (m_GatekeeperConnector.LinkRegion(gatekeeper, out regionID, out handle, out domainName, out imageURL, out reason, out sizeX, out sizeY))
             {
                 string homeURI = null;
                 if (account.ServiceURLs != null && account.ServiceURLs.ContainsKey("HomeURI"))
                     homeURI = (string)account.ServiceURLs["HomeURI"];
-                
+
                 GridRegion destination = m_GatekeeperConnector.GetHyperlinkRegion(gatekeeper, regionID, account.PrincipalID, homeURI, out message);
                 return destination;
             }
@@ -806,6 +865,9 @@ namespace OpenSim.Services.LLLoginService
             reason = string.Empty;
             uint circuitCode = 0;
             AgentCircuitData aCircuit = null;
+            dest = null;
+
+            bool success = false;
 
             if (m_UserAgentService == null)
             {
@@ -816,28 +878,14 @@ namespace OpenSim.Services.LLLoginService
                     simConnector = m_LocalSimulationService;
                 else if (m_RemoteSimulationService != null)
                     simConnector = m_RemoteSimulationService;
-            }
-            else // User Agent Service is on
-            {
-                if (gatekeeper == null) // login to local grid
-                {
-                    if (hostName == string.Empty)
-                        SetHostAndPort(m_GatekeeperURL);
 
-                    gatekeeper = new GridRegion(destination);
-                    gatekeeper.ExternalHostName = hostName;
-                    gatekeeper.HttpPort = (uint)port;
-                    gatekeeper.ServerURI = m_GatekeeperURL;
-                }
-                m_log.Debug("[LLLOGIN SERVICE]: no gatekeeper detected..... using " + m_GatekeeperURL);
-            }
+                if(simConnector == null)
+                    return null;
 
-            bool success = false;
-
-            if (m_UserAgentService == null && simConnector != null)
-            {
                 circuitCode = (uint)Util.RandomClass.Next(); ;
-                aCircuit = MakeAgent(destination, account, avatar, session, secureSession, circuitCode, position, clientIP.Address.ToString(), viewer, channel, mac, id0);
+                aCircuit = MakeAgent(destination, account, avatar, session, secureSession, circuitCode, position,
+                    clientIP.Address.ToString(), viewer, channel, mac, id0);
+
                 success = LaunchAgentDirectly(simConnector, destination, aCircuit, flags, out reason);
                 if (!success && m_GridService != null)
                 {
@@ -859,10 +907,22 @@ namespace OpenSim.Services.LLLoginService
                 }
             }
 
-            if (m_UserAgentService != null)
+            else
             {
+                if (gatekeeper == null) // login to local grid
+                {
+                    if (hostName == string.Empty)
+                        SetHostAndPort(m_GatekeeperURL);
+
+                    gatekeeper = new GridRegion(destination);
+                    gatekeeper.ExternalHostName = hostName;
+                    gatekeeper.HttpPort = (uint)port;
+                    gatekeeper.ServerURI = m_GatekeeperURL;
+                }
                 circuitCode = (uint)Util.RandomClass.Next(); ;
-                aCircuit = MakeAgent(destination, account, avatar, session, secureSession, circuitCode, position, clientIP.Address.ToString(), viewer, channel, mac, id0);
+                aCircuit = MakeAgent(destination, account, avatar, session, secureSession, circuitCode, position,
+                        clientIP.Address.ToString(), viewer, channel, mac, id0);
+
                 aCircuit.teleportFlags |= (uint)flags;
                 success = LaunchAgentIndirectly(gatekeeper, destination, aCircuit, clientIP, out reason);
                 if (!success && m_GridService != null)
@@ -891,8 +951,8 @@ namespace OpenSim.Services.LLLoginService
                 return null;
         }
 
-        private AgentCircuitData MakeAgent(GridRegion region, UserAccount account, 
-            AvatarAppearance avatar, UUID session, UUID secureSession, uint circuit, Vector3 position, 
+        private AgentCircuitData MakeAgent(GridRegion region, UserAccount account,
+            AvatarAppearance avatar, UUID session, UUID secureSession, uint circuit, Vector3 position,
             string ipaddress, string viewer, string channel, string mac, string id0)
         {
             AgentCircuitData aCircuit = new AgentCircuitData();
@@ -930,7 +990,7 @@ namespace OpenSim.Services.LLLoginService
             if (account.ServiceURLs == null)
                 return;
 
-            // Old style: get the service keys from the DB 
+            // Old style: get the service keys from the DB
             foreach (KeyValuePair<string, object> kvp in account.ServiceURLs)
             {
                 if (kvp.Value != null)
@@ -989,7 +1049,7 @@ namespace OpenSim.Services.LLLoginService
                     region, aCircuit.AgentID, null, true, aCircuit.startpos, new List<UUID>(), ctx, out reason))
                 return false;
 
-            return simConnector.CreateAgent(null, region, aCircuit, (uint)flags, out reason);
+            return simConnector.CreateAgent(null, region, aCircuit, (uint)flags, ctx, out reason);
         }
 
         private bool LaunchAgentIndirectly(GridRegion gatekeeper, GridRegion destination, AgentCircuitData aCircuit, IPEndPoint clientIP, out string reason)
@@ -1027,7 +1087,7 @@ namespace OpenSim.Services.LLLoginService
             switch (subcommand)
             {
                 case "level":
-                    // Set the minimum level to allow login 
+                    // Set the minimum level to allow login
                     // Useful to allow grid update without worrying about users.
                     // or fixing critical issues
                     //
@@ -1040,8 +1100,8 @@ namespace OpenSim.Services.LLLoginService
                     }
                     break;
 
-                case "reset":                    
-                    m_MinLoginLevel = 0;
+                case "reset":
+                    m_MinLoginLevel = m_LoginServerConfig.GetInt("MinLoginLevel", 0);
                     MainConsole.Instance.OutputFormat("Reset min login level to {0}", m_MinLoginLevel);
                     break;
 
@@ -1053,6 +1113,41 @@ namespace OpenSim.Services.LLLoginService
                     }
                     break;
             }
+        }
+
+        private bool SendAgentGodKillToRegion(UUID scopeID, UUID agentID , GridUserInfo guinfo)
+        {
+            UUID regionID = guinfo.LastRegionID;
+            GridRegion regInfo = m_GridService.GetRegionByUUID(scopeID, regionID);
+            if(regInfo == null)
+                return false;
+
+            string regURL = regInfo.ServerURI;
+            if(String.IsNullOrEmpty(regURL))
+                return false;
+            
+            UUID guuid = new UUID("6571e388-6218-4574-87db-f9379718315e");
+
+            GridInstantMessage msg = new GridInstantMessage();
+            msg.imSessionID = UUID.Zero.Guid;
+            msg.fromAgentID = guuid.Guid;
+            msg.toAgentID = agentID.Guid;
+            msg.timestamp = (uint)Util.UnixTimeSinceEpoch();
+            msg.fromAgentName = "GRID";
+            msg.message = string.Format("New login detected");
+            msg.dialog = 250; // God kick
+            msg.fromGroup = false;
+            msg.offline = (byte)0;
+            msg.ParentEstateID = 0;
+            msg.Position = Vector3.Zero;
+            msg.RegionID = scopeID.Guid;
+            msg.binaryBucket = new byte[1] {0};
+            InstantMessageServiceConnector.SendInstantMessage(regURL,msg);
+
+            m_GridUserService.LoggedOut(agentID.ToString(),
+                UUID.Zero, guinfo.LastRegionID, guinfo.LastPosition, guinfo.LastLookAt);
+
+            return true;
         }
     }
 

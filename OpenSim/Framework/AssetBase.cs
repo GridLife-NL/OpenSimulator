@@ -63,6 +63,8 @@ namespace OpenSim.Framework
         /// </summary>
         private AssetMetadata m_metadata;
 
+        private int m_uploadAttempts;
+
         // This is needed for .NET serialization!!!
         // Do NOT "Optimize" away!
         public AssetBase()
@@ -110,7 +112,7 @@ namespace OpenSim.Framework
         {
             get
             {
-                return 
+                return
                     IsTextualAsset && (
                     Type != (sbyte)AssetType.Notecard
                     && Type != (sbyte)AssetType.CallingCard
@@ -135,7 +137,7 @@ namespace OpenSim.Framework
         {
             get
             {
-                return 
+                return
                     (Type == (sbyte)AssetType.Animation ||
                      Type == (sbyte)AssetType.Gesture ||
                      Type == (sbyte)AssetType.Simstate ||
@@ -148,11 +150,12 @@ namespace OpenSim.Framework
                      Type == (sbyte)AssetType.Folder ||
                      Type == (sbyte)AssetType.ImageJPEG ||
                      Type == (sbyte)AssetType.ImageTGA ||
-                     Type == (sbyte)AssetType.LSLBytecode);
+                     Type == (sbyte)AssetType.Mesh ||
+                     Type == (sbyte) AssetType.LSLBytecode);
             }
         }
 
-        public virtual byte[] Data
+        public byte[] Data
         {
             get { return m_data; }
             set { m_data = value; }
@@ -195,6 +198,12 @@ namespace OpenSim.Framework
         {
             get { return m_metadata.Type; }
             set { m_metadata.Type = value; }
+        }
+
+        public int UploadAttempts
+        {
+            get { return m_uploadAttempts; }
+            set { m_uploadAttempts = value; }
         }
 
         /// <summary>
@@ -273,7 +282,7 @@ namespace OpenSim.Framework
 
                 return m_id;
             }
-            
+
             set
             {
                 UUID uuid = UUID.Zero;

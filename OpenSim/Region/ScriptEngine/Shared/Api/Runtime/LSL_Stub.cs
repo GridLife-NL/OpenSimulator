@@ -26,6 +26,7 @@
  */
 
 using System;
+using System.Diagnostics; //for [DebuggerNonUserCode]
 using System.Runtime.Remoting.Lifetime;
 using System.Threading;
 using System.Reflection;
@@ -314,6 +315,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_LSL_Functions.llDialog(avatar, message, buttons, chat_channel);
         }
 
+        [DebuggerNonUserCode]
         public void llDie()
         {
             m_LSL_Functions.llDie();
@@ -424,6 +426,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_LSL_Functions.llGetAttached();
         }
 
+        public LSL_List llGetAttachedList(string id)
+        {
+            return m_LSL_Functions.llGetAttachedList(id);
+        }
+
         public LSL_List llGetBoundingBox(string obj)
         {
             return m_LSL_Functions.llGetBoundingBox(obj);
@@ -477,6 +484,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public LSL_Integer llGetFreeMemory()
         {
             return m_LSL_Functions.llGetFreeMemory();
+        }
+
+        public LSL_Integer llGetUsedMemory()
+        {
+            return m_LSL_Functions.llGetUsedMemory();
         }
 
         public LSL_Integer llGetFreeURLs()
@@ -557,11 +569,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public LSL_Integer llGetLinkNumberOfSides(int link)
         {
             return m_LSL_Functions.llGetLinkNumberOfSides(link);
-        }
-
-        public void llSetKeyframedMotion(LSL_List frames, LSL_List options)
-        {
-            m_LSL_Functions.llSetKeyframedMotion(frames, options);
         }
 
         public LSL_Integer llGetListEntryType(LSL_List src, int index)
@@ -859,11 +866,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_LSL_Functions.llGetUnixTime();
         }
 
-        public LSL_Integer llGetUsedMemory()
-        {
-            return m_LSL_Functions.llGetUsedMemory();
-        }
-
         public LSL_Vector llGetVel()
         {
             return m_LSL_Functions.llGetVel();
@@ -884,9 +886,9 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_LSL_Functions.llGiveInventoryList(destination, category, inventory);
         }
 
-        public void llGiveMoney(string destination, int amount)
+        public LSL_Integer llGiveMoney(string destination, int amount)
         {
-            m_LSL_Functions.llGiveMoney(destination, amount);
+            return m_LSL_Functions.llGiveMoney(destination, amount);
         }
 
         public LSL_String llTransferLindenDollars(string destination, int amount)
@@ -1463,6 +1465,21 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_LSL_Functions.llSay(channelID, text);
         }
 
+        public LSL_Integer llScaleByFactor(double scaling_factor)
+        {
+            return m_LSL_Functions.llScaleByFactor(scaling_factor);
+        }
+
+        public LSL_Float llGetMaxScaleFactor()
+        {
+            return m_LSL_Functions.llGetMaxScaleFactor();
+        }
+
+        public LSL_Float llGetMinScaleFactor()
+        {
+            return m_LSL_Functions.llGetMinScaleFactor();
+        }
+
         public void llScaleTexture(double u, double v, int face)
         {
             m_LSL_Functions.llScaleTexture(u, v, face);
@@ -1563,6 +1580,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_LSL_Functions.llSetVelocity(force, local);
         }
 
+
         public void llSetAngularVelocity(LSL_Vector force, int local)
         {
             m_LSL_Functions.llSetAngularVelocity(force, local);
@@ -1643,6 +1661,11 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             m_LSL_Functions.llSetPos(pos);
         }
 
+        public LSL_Integer llSetRegionPos(LSL_Vector pos)
+        {
+            return m_LSL_Functions.llSetRegionPos(pos);
+        }
+
         public void llSetPrimitiveParams(LSL_List rules)
         {
             m_LSL_Functions.llSetPrimitiveParams(rules);
@@ -1656,11 +1679,6 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public void llSetPrimURL(string url)
         {
             m_LSL_Functions.llSetPrimURL(url);
-        }
-
-        public LSL_Integer llSetRegionPos(LSL_Vector pos)
-        {
-            return m_LSL_Functions.llSetRegionPos(pos);
         }
 
         public void llSetRemoteScriptAccessPin(int pin)
@@ -1977,7 +1995,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             return m_LSL_Functions.llXorBase64StringsCorrect(str1, str2);
         }
-        
+
         public LSL_List llGetPrimMediaParams(int face, LSL_List rules)
         {
             return m_LSL_Functions.llGetPrimMediaParams(face, rules);
@@ -2008,9 +2026,64 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
             return m_LSL_Functions.llClearLinkMedia(link, face);
         }
 
-        public void print(string str)
+        public LSL_Integer llGetLinkNumberOfSides(LSL_Integer link)
         {
-            m_LSL_Functions.print(str);
+            return m_LSL_Functions.llGetLinkNumberOfSides(link);
+        }
+
+        public void llSetKeyframedMotion(LSL_List frames, LSL_List options)
+        {
+            m_LSL_Functions.llSetKeyframedMotion(frames, options);
+        }
+
+        public void llSetPhysicsMaterial(int material_bits, LSL_Float material_gravity_modifier, LSL_Float material_restitution, LSL_Float material_friction, LSL_Float material_density)
+        {
+            m_LSL_Functions.llSetPhysicsMaterial(material_bits, material_gravity_modifier, material_restitution, material_friction, material_density);
+        }
+
+        public LSL_List llGetPhysicsMaterial()
+        {
+            return m_LSL_Functions.llGetPhysicsMaterial();
+        }
+
+        public void llSetAnimationOverride(LSL_String animState, LSL_String anim)
+        {
+            m_LSL_Functions.llSetAnimationOverride(animState, anim);
+        }
+
+        public void llResetAnimationOverride(LSL_String anim_state)
+        {
+            m_LSL_Functions.llResetAnimationOverride(anim_state);
+        }
+
+        public LSL_String llGetAnimationOverride(LSL_String anim_state)
+        {
+            return m_LSL_Functions.llGetAnimationOverride(anim_state);
+        }
+
+        public LSL_String llJsonGetValue(LSL_String json, LSL_List specifiers)
+        {
+            return m_LSL_Functions.llJsonGetValue(json, specifiers);
+        }
+
+        public LSL_List llJson2List(LSL_String json)
+        {
+            return m_LSL_Functions.llJson2List(json);
+        }
+
+        public LSL_String llList2Json(LSL_String type, LSL_List values)
+        {
+            return m_LSL_Functions.llList2Json(type, values);
+        }
+
+        public LSL_String llJsonSetValue(LSL_String json, LSL_List specifiers, LSL_String value)
+        {
+            return m_LSL_Functions.llJsonSetValue(json, specifiers, value);
+        }
+
+        public LSL_String llJsonValueType(LSL_String json, LSL_List specifiers)
+        {
+            return m_LSL_Functions.llJsonValueType(json, specifiers);
         }
     }
 }

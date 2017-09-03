@@ -29,7 +29,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using OpenMetaverse;
-using Ode.NET;
 using OpenSim.Framework;
 using OpenSim.Region.PhysicsModules.SharedBase;
 using log4net;
@@ -150,7 +149,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
         /// Collision geometry
         /// </summary>
         internal IntPtr Shell { get; private set; }
-        
+
         private IntPtr Amotor = IntPtr.Zero;
         private d.Mass ShellMass;
 
@@ -238,7 +237,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
             m_tainted_isPhysical = true; // new tainted status: need to create ODE information
 
             _parent_scene.AddPhysicsActorTaint(this);
-            
+
             Name = avName;
         }
 
@@ -280,7 +279,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
 
         public override bool IsPhysical
         {
-            get { return false; }
+            get { return m_isPhysical; }
             set { return; }
         }
 
@@ -462,7 +461,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
                             value.Z = _parent_scene.GetTerrainHeightAtXY(127, 127) + 5;
                         }
 
-                        m_taintPosition = value;                        
+                        m_taintPosition = value;
                         _parent_scene.AddPhysicsActorTaint(this);
                     }
                     else
@@ -595,7 +594,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
 
         public override void delink() {}
 
-        public override void LockAngularMotion(Vector3 axis) {}
+        public override void LockAngularMotion(byte axislocks) {}
 
 //      This code is very useful. Written by DanX0r. We're just not using it right now.
 //      Commented out to prevent a warning.
@@ -797,7 +796,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
         internal void Move(List<OdeCharacter> defects)
         {
             //  no lock; for now it's only called from within Simulate()
-            
+
             // If the PID Controller isn't active then we set our force
             // calculating base velocity to the current position
 
@@ -812,7 +811,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
 
             d.Vector3 localpos = d.BodyGetPosition(Body);
             Vector3 localPos = new Vector3(localpos.X, localpos.Y, localpos.Z);
-            
+
             if (!localPos.IsFinite())
             {
                 m_log.WarnFormat(
@@ -1105,8 +1104,8 @@ namespace OpenSim.Region.PhysicsModule.ODE
 //          lock (OdeScene.UniversalColliderSyncObject)
             Shell = d.CreateCapsule(_parent_scene.space, CAPSULE_RADIUS, CAPSULE_LENGTH);
 
-            d.GeomSetCategoryBits(Shell, (int)m_collisionCategories);
-            d.GeomSetCollideBits(Shell, (int)m_collisionFlags);
+            d.GeomSetCategoryBits(Shell, (uint)m_collisionCategories);
+            d.GeomSetCollideBits(Shell, (uint)m_collisionFlags);
 
             d.MassSetCapsuleTotal(out ShellMass, m_mass, 2, CAPSULE_RADIUS, CAPSULE_LENGTH);
             Body = d.BodyCreate(_parent_scene.world);
@@ -1249,18 +1248,18 @@ namespace OpenSim.Region.PhysicsModule.ODE
         }
 
         public override Vector3 PIDTarget { set { return; } }
-        public override bool PIDActive 
-        { 
+        public override bool PIDActive
+        {
             get { return false; }
-            set { return; } 
+            set { return; }
         }
         public override float PIDTau { set { return; } }
 
         public override float PIDHoverHeight { set { return; } }
-        public override bool PIDHoverActive { set { return; } }
+        public override bool PIDHoverActive {get {return false;} set { return; } }
         public override PIDHoverType PIDHoverType { set { return; } }
         public override float PIDHoverTau { set { return; } }
-        
+
         public override Quaternion APIDTarget{ set { return; } }
 
         public override bool APIDActive{ set { return; } }
@@ -1291,7 +1290,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
             m_eventsubscription = 0;
         }
 
-        internal void AddCollisionEvent(uint CollidedWith, ContactPoint contact)
+        public override void AddCollisionEvent(uint CollidedWith, ContactPoint contact)
         {
             if (m_eventsubscription > 0)
             {
@@ -1370,7 +1369,7 @@ namespace OpenSim.Region.PhysicsModule.ODE
 //                    m_log.DebugFormat(
 //                        "[ODE CHARACTER]: Changing capsule size from {0} to {1} for {2}",
 //                        CAPSULE_LENGTH, m_tainted_CAPSULE_LENGTH, Name);
-                    
+
                     m_pidControllerActive = true;
 
                     // no lock needed on _parent_scene.OdeLock because we are called from within the thread lock in OdePlugin's simulate()

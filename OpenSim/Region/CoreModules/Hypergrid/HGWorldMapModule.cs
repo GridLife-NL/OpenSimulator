@@ -46,7 +46,7 @@ namespace OpenSim.Region.CoreModules.Hypergrid
     public class HGWorldMapModule : WorldMapModule
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        
+
         // Remember the map area that each client has been exposed to in this region
         private Dictionary<UUID, List<MapBlockData>> m_SeenMapBlocks = new Dictionary<UUID, List<MapBlockData>>();
 
@@ -106,6 +106,8 @@ namespace OpenSim.Region.CoreModules.Hypergrid
             if (!m_Enabled)
                 return;
 
+            base.RemoveRegion(scene);
+
             scene.EventManager.OnClientClosed -= EventManager_OnClientClosed;
         }
 
@@ -138,9 +140,9 @@ namespace OpenSim.Region.CoreModules.Hypergrid
             }
         }
 
-        protected override List<MapBlockData> GetAndSendBlocks(IClientAPI remoteClient, int minX, int minY, int maxX, int maxY, uint flag)
+        protected override List<MapBlockData> GetAndSendBlocksInternal(IClientAPI remoteClient, int minX, int minY, int maxX, int maxY, uint flag)
         {
-            List<MapBlockData>  mapBlocks = base.GetAndSendBlocks(remoteClient, minX, minY, maxX, maxY, flag);
+            List<MapBlockData>  mapBlocks = base.GetAndSendBlocksInternal(remoteClient, minX, minY, maxX, maxY, flag);
             lock (m_SeenMapBlocks)
             {
                 if (!m_SeenMapBlocks.ContainsKey(remoteClient.AgentId))

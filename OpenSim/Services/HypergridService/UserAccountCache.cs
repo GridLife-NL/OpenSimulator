@@ -16,7 +16,7 @@ namespace OpenSim.Services.HypergridService
 //        private static readonly ILog m_log =
 //                LogManager.GetLogger(
 //                MethodBase.GetCurrentMethod().DeclaringType);
-        
+
         private ExpiringCache<UUID, UserAccount> m_UUIDCache;
 
         private IUserAccountService m_UserAccountService;
@@ -90,7 +90,17 @@ namespace OpenSim.Services.HypergridService
             return null;
         }
 
+        public List<UserAccount> GetUserAccountsWhere(UUID scopeID, string query)
+        {
+            return null;
+        }
+
         public List<UserAccount> GetUserAccounts(UUID scopeID, string query)
+        {
+            return null;
+        }
+
+        public List<UserAccount> GetUserAccounts(UUID scopeID, List<string> IDs)
         {
             return null;
         }

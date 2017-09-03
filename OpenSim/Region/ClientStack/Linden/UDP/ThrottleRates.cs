@@ -58,16 +58,19 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
         /// <summary>Flag used to enable adaptive throttles</summary>
         public bool AdaptiveThrottlesEnabled;
- 
+
         /// <summary>
         /// Set the minimum rate that the adaptive throttles can set. The viewer
         /// can still throttle lower than this, but the adaptive throttles will
         /// never decrease rates below this no matter how many packets are dropped
         /// </summary>
         public Int64 MinimumAdaptiveThrottleRate;
- 
+
         /// <summary>Amount of the texture throttle to steal for the task throttle</summary>
         public double CannibalizeTextureRate;
+
+        public int ClientMaxRate;
+        public float BrustTime;
 
         /// <summary>
         /// Default constructor
@@ -88,13 +91,25 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 Texture = throttleConfig.GetInt("texture_default", 18500);
                 Asset = throttleConfig.GetInt("asset_default", 10500);
 
-                Total = throttleConfig.GetInt("client_throttle_max_bps", 0);
+                Total = Resend + Land + Wind + Cloud + Task + Texture + Asset;
+                // 5120000 bps default max
+                ClientMaxRate = throttleConfig.GetInt("client_throttle_max_bps", 640000);
+                if (ClientMaxRate > 1000000)
+                    ClientMaxRate = 1000000; // no more than 8Mbps
 
-                AdaptiveThrottlesEnabled = throttleConfig.GetBoolean("enable_adaptive_throttles", false);
+                BrustTime = (float)throttleConfig.GetInt("client_throttle_burtsTimeMS", 10);
+                BrustTime *= 1e-3f;
+
+                // Adaptive is broken
+//                AdaptiveThrottlesEnabled = throttleConfig.GetBoolean("enable_adaptive_throttles", false);
+                AdaptiveThrottlesEnabled = false;
                 MinimumAdaptiveThrottleRate = throttleConfig.GetInt("adaptive_throttle_min_bps", 32000);
 
-                CannibalizeTextureRate = (double)throttleConfig.GetFloat("CannibalizeTextureRate", 0.0f);
-                CannibalizeTextureRate = Util.Clamp<double>(CannibalizeTextureRate,0.0, 0.9);
+                // http textures do use udp bandwidth setting
+//                CannibalizeTextureRate = (double)throttleConfig.GetFloat("CannibalizeTextureRate", 0.0f);
+//                CannibalizeTextureRate = Util.Clamp<double>(CannibalizeTextureRate,0.0, 0.9);
+                CannibalizeTextureRate = 0f;
+
             }
             catch (Exception) { }
         }

@@ -29,7 +29,7 @@ using System.Threading;
 
 namespace OpenSim.Framework
 {
-    public sealed class LocklessQueue<T>
+    public class LocklessQueue<T>
     {
         private sealed class SingleLinkNode
         {
@@ -41,7 +41,7 @@ namespace OpenSim.Framework
         SingleLinkNode tail;
         int count;
 
-        public int Count { get { return count; } }
+        public virtual int Count { get { return count; } }
 
         public LocklessQueue()
         {
@@ -76,7 +76,7 @@ namespace OpenSim.Framework
             Interlocked.Increment(ref count);
         }
 
-        public bool Dequeue(out T item)
+        public virtual bool Dequeue(out T item)
         {
             item = default(T);
             SingleLinkNode oldHead = null;
@@ -93,13 +93,16 @@ namespace OpenSim.Framework
                     if (oldHead == oldTail)
                     {
                         if (oldHeadNext == null)
+                        {
+                            count = 0;
                             return false;
+                        }
 
                         CAS(ref tail, oldTail, oldHeadNext);
                     }
                     else
                     {
-                        item = oldHeadNext.Item;                       
+                        item = oldHeadNext.Item;
                         haveAdvancedHead = CAS(ref head, oldHead, oldHeadNext);
                         if (haveAdvancedHead)
                         {
@@ -118,8 +121,7 @@ namespace OpenSim.Framework
         {
             // ugly
             T item;
-            while(count > 0)
-                Dequeue(out item);
+            while(Dequeue(out item));
             Init();
         }
 

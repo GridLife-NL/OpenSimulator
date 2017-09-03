@@ -63,23 +63,23 @@ namespace OpenSim.Region.ClientStack.Linden
         private static readonly string m_uploadBakedTexturePath = "0010/";// This is in the LandManagementModule.
 
         private Scene m_scene;
-        private bool m_persistBakedTextures;
 
-        private IBakedTextureModule m_BakedTextureModule;
+        private string m_URL;
 
         public void Initialise(IConfigSource source)
         {
-            IConfig appearanceConfig = source.Configs["Appearance"];
-            if (appearanceConfig != null)
-                m_persistBakedTextures = appearanceConfig.GetBoolean("PersistBakedTextures", m_persistBakedTextures);
+            IConfig config = source.Configs["ClientStack.LindenCaps"];
+            if (config == null)
+                return;
 
+            m_URL = config.GetString("Cap_UploadBakedTexture", string.Empty);
 
+//            IConfig appearanceConfig = source.Configs["Appearance"];
         }
 
         public void AddRegion(Scene s)
         {
             m_scene = s;
-           
         }
 
         public void RemoveRegion(Scene s)
@@ -87,187 +87,27 @@ namespace OpenSim.Region.ClientStack.Linden
             s.EventManager.OnRegisterCaps -= RegisterCaps;
             s.EventManager.OnNewPresence -= RegisterNewPresence;
             s.EventManager.OnRemovePresence -= DeRegisterPresence;
-            m_BakedTextureModule = null;
             m_scene = null;
         }
-
-       
 
         public void RegionLoaded(Scene s)
         {
             m_scene.EventManager.OnRegisterCaps += RegisterCaps;
             m_scene.EventManager.OnNewPresence += RegisterNewPresence;
             m_scene.EventManager.OnRemovePresence += DeRegisterPresence;
-            
         }
 
         private void DeRegisterPresence(UUID agentId)
         {
-            ScenePresence presence = null;
-            if (m_scene.TryGetScenePresence(agentId, out presence))
-            {
-                presence.ControllingClient.OnSetAppearance -= CaptureAppearanceSettings;
-            }
-
         }
 
         private void RegisterNewPresence(ScenePresence presence)
         {
-           presence.ControllingClient.OnSetAppearance += CaptureAppearanceSettings;
-
-        }
-
-        private void CaptureAppearanceSettings(IClientAPI remoteClient, Primitive.TextureEntry textureEntry, byte[] visualParams, Vector3 avSize, WearableCacheItem[] cacheItems)
-        {
-            int maxCacheitemsLoop = cacheItems.Length;
-            if (maxCacheitemsLoop > AvatarWearable.MAX_WEARABLES)
-            {
-                maxCacheitemsLoop = AvatarWearable.MAX_WEARABLES;
-                m_log.WarnFormat("[CACHEDBAKES]: Too Many Cache items Provided {0}, the max is {1}.  Truncating!", cacheItems.Length, AvatarWearable.MAX_WEARABLES);
-            }
-
-            m_BakedTextureModule = m_scene.RequestModuleInterface<IBakedTextureModule>();
-            if (cacheItems.Length > 0)
-            {
-//                m_log.Debug("[Cacheitems]: " + cacheItems.Length);
-//                for (int iter = 0; iter < maxCacheitemsLoop; iter++)
-//                {
-//                    m_log.Debug("[Cacheitems] {" + iter + "/" + cacheItems[iter].TextureIndex + "}: c-" + cacheItems[iter].CacheId + ", t-" +
-//                                      cacheItems[iter].TextureID);
-//                }
-               
-                ScenePresence p = null;
-                if (m_scene.TryGetScenePresence(remoteClient.AgentId, out p))
-                {
-
-                    WearableCacheItem[] existingitems = p.Appearance.WearableCacheItems;
-                    if (existingitems == null)
-                    {
-                        if (m_BakedTextureModule != null)
-                        {
-                            WearableCacheItem[] savedcache = null;
-                            try
-                            {
-                                if (p.Appearance.WearableCacheItemsDirty)
-                                {
-                                    savedcache = m_BakedTextureModule.Get(p.UUID);
-                                    p.Appearance.WearableCacheItems = savedcache;
-                                    p.Appearance.WearableCacheItemsDirty = false;
-                                }
-
-                            }
-                            /*
-                             * The following Catch types DO NOT WORK with m_BakedTextureModule.Get
-                             * it jumps to the General Packet Exception Handler if you don't catch Exception!
-                             * 
-                            catch (System.Net.Sockets.SocketException)
-                            {
-                                cacheItems = null;
-                            }
-                            catch (WebException)
-                            {
-                                cacheItems = null;
-                            }
-                            catch (InvalidOperationException)
-                            {
-                                cacheItems = null;
-                            } */
-                            catch (Exception)
-                            {
-                               // The service logs a sufficient error message.
-                            }
-                            
-
-                            if (savedcache != null)
-                                existingitems = savedcache;
-                        }
-                    }
-                    // Existing items null means it's a fully new appearance
-                    if (existingitems == null)
-                    {
-
-                        for (int i = 0; i < maxCacheitemsLoop; i++)
-                        {
-                            if (textureEntry.FaceTextures.Length > cacheItems[i].TextureIndex)
-                            {
-                                Primitive.TextureEntryFace face = textureEntry.FaceTextures[cacheItems[i].TextureIndex];
-                                if (face == null)
-                                {
-                                    textureEntry.CreateFace(cacheItems[i].TextureIndex);
-                                    textureEntry.FaceTextures[cacheItems[i].TextureIndex].TextureID =
-                                        AppearanceManager.DEFAULT_AVATAR_TEXTURE;
-                                    continue;
-                                }
-                                cacheItems[i].TextureID =face.TextureID;
-                                if (m_scene.AssetService != null)
-                                    cacheItems[i].TextureAsset =
-                                        m_scene.AssetService.GetCached(cacheItems[i].TextureID.ToString());
-                            }
-                            else
-                            {
-                                m_log.WarnFormat("[CACHEDBAKES]: Invalid Texture Index Provided, Texture doesn't exist or hasn't been uploaded yet {0}, the max is {1}.  Skipping!", cacheItems[i].TextureIndex, textureEntry.FaceTextures.Length);
-                            }
-
-
-                        }
-                    }
-                    else
-
-
-                    {
-                        // for each uploaded baked texture
-                        for (int i = 0; i < maxCacheitemsLoop; i++)
-                        {
-                            if (textureEntry.FaceTextures.Length > cacheItems[i].TextureIndex)
-                            {
-                                Primitive.TextureEntryFace face = textureEntry.FaceTextures[cacheItems[i].TextureIndex];
-                                if (face == null)
-                                {
-                                    textureEntry.CreateFace(cacheItems[i].TextureIndex);
-                                    textureEntry.FaceTextures[cacheItems[i].TextureIndex].TextureID =
-                                        AppearanceManager.DEFAULT_AVATAR_TEXTURE;
-                                    continue;
-                                }
-                                cacheItems[i].TextureID =
-                                    face.TextureID;
-                            }
-                            else
-                            {
-                                m_log.WarnFormat("[CACHEDBAKES]: Invalid Texture Index Provided, Texture doesn't exist or hasn't been uploaded yet {0}, the max is {1}.  Skipping!", cacheItems[i].TextureIndex, textureEntry.FaceTextures.Length);
-                            }
-                        }
-
-                        for (int i = 0; i < maxCacheitemsLoop; i++)
-                        {
-                            if (cacheItems[i].TextureAsset == null)
-                            {
-                                cacheItems[i].TextureAsset =
-                                    m_scene.AssetService.GetCached(cacheItems[i].TextureID.ToString());
-                            }
-                        }
-                    }
-
-
-
-                    p.Appearance.WearableCacheItems = cacheItems;
-                    
-                   
-
-                    if (m_BakedTextureModule != null)
-                    {
-                        m_BakedTextureModule.Store(remoteClient.AgentId, cacheItems);
-                        p.Appearance.WearableCacheItemsDirty = true;
-                        
-                    }
-                }
-            }
         }
 
         public void PostInitialise()
         {
         }
-
-
 
         public void Close() { }
 
@@ -280,23 +120,26 @@ namespace OpenSim.Region.ClientStack.Linden
 
         public void RegisterCaps(UUID agentID, Caps caps)
         {
-            UploadBakedTextureHandler avatarhandler = new UploadBakedTextureHandler(
-                caps, m_scene.AssetService, m_persistBakedTextures);
+            //caps.RegisterHandler("GetTexture", new StreamHandler("GET", "/CAPS/" + capID, ProcessGetTexture));
+            if (m_URL == "localhost")
+            {
+                UploadBakedTextureHandler avatarhandler = new UploadBakedTextureHandler(
+                    caps, m_scene.AssetService);
 
-           
-            
-            caps.RegisterHandler(
-                "UploadBakedTexture",
-                new RestStreamHandler(
-                    "POST",
-                    "/CAPS/" + caps.CapsObjectPath + m_uploadBakedTexturePath,
-                    avatarhandler.UploadBakedTexture,
+                caps.RegisterHandler(
                     "UploadBakedTexture",
-                    agentID.ToString()));
+                    new RestStreamHandler(
+                        "POST",
+                        "/CAPS/" + caps.CapsObjectPath + m_uploadBakedTexturePath,
+                        avatarhandler.UploadBakedTexture,
+                        "UploadBakedTexture",
+                        agentID.ToString()));
 
-           
-            
-
+            }
+            else
+            {
+                caps.RegisterHandler("UploadBakedTexture", m_URL);
+            }
         }
     }
 }

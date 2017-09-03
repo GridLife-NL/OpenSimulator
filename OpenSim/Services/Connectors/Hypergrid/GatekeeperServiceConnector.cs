@@ -73,13 +73,15 @@ namespace OpenSim.Services.Connectors.Hypergrid
             return "foreignobject/";
         }
 
-        public bool LinkRegion(GridRegion info, out UUID regionID, out ulong realHandle, out string externalName, out string imageURL, out string reason)
+        public bool LinkRegion(GridRegion info, out UUID regionID, out ulong realHandle, out string externalName, out string imageURL, out string reason, out int sizeX, out int sizeY)
         {
             regionID = UUID.Zero;
             imageURL = string.Empty;
             realHandle = 0;
             externalName = string.Empty;
             reason = string.Empty;
+            sizeX = (int)Constants.RegionSize;
+            sizeY = (int)Constants.RegionSize;
 
             Hashtable hash = new Hashtable();
             hash["region_name"] = info.RegionName;
@@ -134,8 +136,15 @@ namespace OpenSim.Services.Connectors.Hypergrid
                         externalName = (string)hash["external_name"];
                         //m_log.Debug(">> HERE, externalName: " + externalName);
                     }
+                    if (hash["size_x"] != null)
+                    {
+                        Int32.TryParse((string)hash["size_x"], out sizeX);
+                    }
+                    if (hash["size_y"] != null)
+                    {
+                        Int32.TryParse((string)hash["size_y"], out sizeY);
+                    }
                 }
-
             }
             catch (Exception e)
             {
@@ -160,14 +169,15 @@ namespace OpenSim.Services.Connectors.Hypergrid
 
             try
             {
-                WebClient c = new WebClient();
+                //m_log.Debug("JPEG: " + imageURL);
                 string name = regionID.ToString();
                 filename = Path.Combine(storagePath, name + ".jpg");
                 m_log.DebugFormat("[GATEKEEPER SERVICE CONNECTOR]: Map image at {0}, cached at {1}", imageURL, filename);
                 if (!File.Exists(filename))
                 {
                     m_log.DebugFormat("[GATEKEEPER SERVICE CONNECTOR]: downloading...");
-                    c.DownloadFile(imageURL, filename);
+                    using(WebClient c = new WebClient())
+                        c.DownloadFile(imageURL, filename);
                 }
                 else
                 {
@@ -189,11 +199,10 @@ namespace OpenSim.Services.Connectors.Hypergrid
 
                 ass.Data = imageData;
 
-                mapTile = ass.FullID;
-
-                // finally
                 m_AssetService.Store(ass);
 
+                // finally
+                mapTile = ass.FullID;
             }
             catch // LEGIT: Catching problems caused by OpenJPEG p/invoke
             {

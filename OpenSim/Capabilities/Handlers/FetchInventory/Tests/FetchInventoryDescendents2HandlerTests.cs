@@ -140,7 +140,7 @@ namespace OpenSim.Capabilities.Handlers.FetchInventory.Tests
             string request = "<llsd><map><key>folders</key><array><map><key>fetch_folders</key><integer>1</integer><key>fetch_items</key><boolean>1</boolean><key>folder_id</key><uuid>";
             request += m_rootFolderID;
             request += "</uuid><key>owner_id</key><uuid>00000000-0000-0000-0000-000000000000</uuid><key>sort_order</key><integer>1</integer></map></array></map></llsd>";
-            
+
             string llsdresponse = handler.FetchInventoryDescendentsRequest(request, "/FETCH", string.Empty, req, resp);
 
             Assert.That(llsdresponse != null, Is.True, "Incorrect null response");
@@ -203,7 +203,7 @@ namespace OpenSim.Capabilities.Handlers.FetchInventory.Tests
 
             // Make sure that the note card link is included
             Assert.That(llsdresponse.Contains("Link to notecard"), Is.True, "Link to notecard is missing");
-            
+
             //Make sure the notecard item itself is included
             Assert.That(llsdresponse.Contains("Test Notecard 2"), Is.True, "Notecard 2 item (the source) is missing");
 
@@ -215,10 +215,11 @@ namespace OpenSim.Capabilities.Handlers.FetchInventory.Tests
             // Make sure the folder link is included
             Assert.That(llsdresponse.Contains("Link to Objects folder"), Is.True, "Link to Objects folder is missing");
 
+/* contents of link folder are not supposed to be listed
             // Make sure the objects inside the Objects folder are included
             // Note: I'm not entirely sure this is needed, but that's what I found in the implementation
             Assert.That(llsdresponse.Contains("Some Object"), Is.True, "Some Object item (contents of the source) is missing");
-
+*/
             // Make sure that the source item is before the link item
             pos1 = llsdresponse.IndexOf("Some Object");
             pos2 = llsdresponse.IndexOf("Link to Objects folder");

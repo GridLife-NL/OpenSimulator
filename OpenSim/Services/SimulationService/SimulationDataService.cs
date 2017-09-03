@@ -104,6 +104,11 @@ namespace OpenSim.Services.SimulationService
             m_database.StoreTerrain(terrain, regionID);
         }
 
+        public void StoreBakedTerrain(TerrainData terrain, UUID regionID)
+        {
+            m_database.StoreBakedTerrain(terrain, regionID);
+        }
+
         public void StoreTerrain(double[,] terrain, UUID regionID)
         {
             m_database.StoreTerrain(terrain, regionID);
@@ -117,6 +122,11 @@ namespace OpenSim.Services.SimulationService
         public TerrainData LoadTerrain(UUID regionID, int pSizeX, int pSizeY, int pSizeZ)
         {
             return m_database.LoadTerrain(regionID, pSizeX, pSizeY, pSizeZ);
+        }
+
+        public TerrainData LoadBakedTerrain(UUID regionID, int pSizeX, int pSizeY, int pSizeZ)
+        {
+            return m_database.LoadBakedTerrain(regionID, pSizeX, pSizeY, pSizeZ);
         }
 
         public void StoreLandObject(ILandObject Parcel)
@@ -171,6 +181,11 @@ namespace OpenSim.Services.SimulationService
         public void RemoveRegionEnvironmentSettings(UUID regionUUID)
         {
             m_database.RemoveRegionEnvironmentSettings(regionUUID);
+        }
+
+        public UUID[] GetObjectIDs(UUID regionID)
+        {
+            return m_database.GetObjectIDs(regionID);
         }
 
         public void SaveExtra(UUID regionID, string name, string val)

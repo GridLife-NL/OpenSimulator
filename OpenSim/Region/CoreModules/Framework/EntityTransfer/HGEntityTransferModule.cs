@@ -95,8 +95,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                     foreach (AvatarAttachment att in a.GetAttachments())
                     {
-                        InventoryItemBase item = new InventoryItemBase(att.ItemID, account.PrincipalID);
-                        item = Scene.InventoryService.GetItem(item);
+                        InventoryItemBase item = Scene.InventoryService.GetItem(account.PrincipalID, att.ItemID);
                         if (item != null)
                             a.SetAttachment(att.AttachPoint, att.ItemID, item.AssetID);
                         else
@@ -161,10 +160,10 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 scene.RegisterModuleInterface<IUserAgentVerificationModule>(this);
                 //scene.EventManager.OnIncomingSceneObject += OnIncomingSceneObject;
 
-                m_incomingSceneObjectEngine 
+                m_incomingSceneObjectEngine
                     = new JobEngine(
-                        string.Format("HG Incoming Scene Object Engine ({0})", scene.Name), 
-                        "HG INCOMING SCENE OBJECT ENGINE");
+                        string.Format("HG Incoming Scene Object Engine ({0})", scene.Name),
+                        "HG INCOMING SCENE OBJECT ENGINE", 30000);
 
                 StatsManager.RegisterStat(
                     new Stat(
@@ -239,13 +238,13 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             return region;
         }
 
-        protected override bool NeedsClosing(float drawdist, uint oldRegionX, uint newRegionX, uint oldRegionY, uint newRegionY, GridRegion reg)
+        protected override bool NeedsClosing(GridRegion reg, bool OutViewRange)
         {
-            if (base.NeedsClosing(drawdist, oldRegionX, newRegionX, oldRegionY, newRegionY, reg))
+            if (OutViewRange)
                 return true;
 
             int flags = Scene.GridService.GetRegionFlags(Scene.RegionInfo.ScopeID, reg.RegionID);
-            if (flags == -1 /* no region in DB */ || (flags & (int)OpenSim.Framework.RegionFlags.Hyperlink) != 0)
+            if (flags == -1 || (flags & (int)OpenSim.Framework.RegionFlags.Hyperlink) != 0)
                 return true;
 
             return false;
@@ -263,7 +262,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             }
         }
 
-        protected override bool CreateAgent(ScenePresence sp, GridRegion reg, GridRegion finalDestination, AgentCircuitData agentCircuit, uint teleportFlags, out string reason, out bool logout)
+        protected override bool CreateAgent(ScenePresence sp, GridRegion reg, GridRegion finalDestination, AgentCircuitData agentCircuit, uint teleportFlags, EntityTransferContext ctx, out string reason, out bool logout)
         {
             m_log.DebugFormat("[HG ENTITY TRANSFER MODULE]: CreateAgent {0} {1}", reg.ServerURI, finalDestination.ServerURI);
             reason = string.Empty;
@@ -273,7 +272,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             {
                 // this user is going to another grid
                 // for local users, check if HyperGrid teleport is allowed, based on user level
-                if (Scene.UserManagementModule.IsLocalGridUser(sp.UUID) && sp.UserLevel < m_levelHGTeleport)
+                if (Scene.UserManagementModule.IsLocalGridUser(sp.UUID) && sp.GodController.UserLevel < m_levelHGTeleport)
                 {
                     m_log.WarnFormat("[HG ENTITY TRANSFER MODULE]: Unable to HG teleport agent due to insufficient UserLevel.");
                     reason = "Hypergrid teleport not allowed";
@@ -292,7 +291,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                     GridRegion source = new GridRegion(Scene.RegionInfo);
                     source.RawServerURI = m_GatekeeperURI;
-                    
+
                     bool success = connector.LoginAgentToGrid(source, agentCircuit, reg, finalDestination, false, out reason);
                     logout = success; // flag for later logout from this grid; this is an HG TP
 
@@ -308,7 +307,12 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 }
             }
 
-            return base.CreateAgent(sp, reg, finalDestination, agentCircuit, teleportFlags, out reason, out logout);
+            return base.CreateAgent(sp, reg, finalDestination, agentCircuit, teleportFlags, ctx, out reason, out logout);
+        }
+
+        public override void TriggerTeleportHome(UUID id, IClientAPI client)
+        {
+            TeleportHome(id, client);
         }
 
         protected override bool ValidateGenericConditions(ScenePresence sp, GridRegion reg, GridRegion finalDestination, uint teleportFlags, out string reason)
@@ -328,7 +332,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     m_log.DebugFormat("[HG ENTITY TRANSFER MODULE]: RestrictAppearanceAbroad is ON. Checking generic appearance");
 
                     // Check wearables
-                    for (int i = 0; i < AvatarWearable.MAX_WEARABLES; i++)
+                    for (int i = 0; i < sp.Appearance.Wearables.Length ; i++)
                     {
                         for (int j = 0; j < sp.Appearance.Wearables[i].Count; j++)
                         {
@@ -337,13 +341,13 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                             bool found = false;
                             foreach (AvatarAppearance a in ExportedAppearance)
-                                if (a.Wearables[i] != null)
+                                if (i < a.Wearables.Length && a.Wearables[i] != null)
                                 {
                                     found = true;
                                     break;
                                 }
 
-                            if (!found) 
+                            if (!found)
                             {
                                m_log.DebugFormat("[HG ENTITY TRANSFER MODULE]: Wearable not allowed to go outside {0}", i);
                                return false;
@@ -351,7 +355,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
 
                             found = false;
                             foreach (AvatarAppearance a in ExportedAppearance)
-                                if (sp.Appearance.Wearables[i][j].AssetID == a.Wearables[i][j].AssetID)
+                                if (i < a.Wearables.Length && sp.Appearance.Wearables[i][j].AssetID == a.Wearables[i][j].AssetID)
                                 {
                                     found = true;
                                     break;
@@ -412,7 +416,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
         //            // Rez needed npc attachments
         //            Scene.AttachmentsModule.RezAttachments(sp);
 
-                   
+
         //            IAvatarFactoryModule module = Scene.RequestModuleInterface<IAvatarFactoryModule>();
         //            //module.SendAppearance(sp.UUID);
         //            module.RequestRebake(sp, false);
@@ -429,11 +433,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
         //    return base.UpdateAgent(reg, finalDestination, agentData, sp);
         //}
 
-        public override void TriggerTeleportHome(UUID id, IClientAPI client)     
-        {                                                                       
-            TeleportHome(id, client);                                           
-        }                                                                       
-                          
+
         public override bool TeleportHome(UUID id, IClientAPI client)
         {
             m_log.DebugFormat(
@@ -449,7 +449,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             }
 
             // Foreign user wants to go home
-            // 
+            //
             AgentCircuitData aCircuit = ((Scene)(client.Scene)).AuthenticateHandler.GetAgentCircuitData(client.CircuitCode);
             if (aCircuit == null || (aCircuit != null && !aCircuit.ServiceURLs.ContainsKey("HomeURI")))
             {
@@ -470,7 +470,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             {
                 m_log.Debug("[HG ENTITY TRANSFER MODULE]: GetHomeRegion call failed ", e);
             }
-            
+
             if (finalDestination == null)
             {
                 client.SendTeleportFailed("Your home region could not be found");
@@ -487,13 +487,11 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             }
 
             GridRegion homeGatekeeper = MakeRegion(aCircuit);
-            
+
             m_log.DebugFormat("[HG ENTITY TRANSFER MODULE]: teleporting user {0} {1} home to {2} via {3}:{4}",
                 aCircuit.firstname, aCircuit.lastname, finalDestination.RegionName, homeGatekeeper.ServerURI, homeGatekeeper.RegionName);
 
-            DoTeleport(
-                sp, homeGatekeeper, finalDestination,
-                position, lookAt, (uint)(Constants.TeleportFlags.SetLastToTarget | Constants.TeleportFlags.ViaHome));
+            DoTeleport(sp, homeGatekeeper, finalDestination, position, lookAt, (uint)(Constants.TeleportFlags.SetLastToTarget | Constants.TeleportFlags.ViaHome));
             return true;
         }
 
@@ -505,7 +503,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
         /// <param name="position"></param>
         public override void RequestTeleportLandmark(IClientAPI remoteClient, AssetLandmark lm)
         {
-            m_log.DebugFormat("[HG ENTITY TRANSFER MODULE]: Teleporting agent via landmark to {0} region {1} position {2}", 
+            m_log.DebugFormat("[HG ENTITY TRANSFER MODULE]: Teleporting agent via landmark to {0} region {1} position {2}",
                 (lm.Gatekeeper == string.Empty) ? "local" : lm.Gatekeeper, lm.RegionID, lm.Position);
 
             if (lm.Gatekeeper == string.Empty)
@@ -523,7 +521,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     remoteClient, info.RegionHandle, lm.Position,
                     Vector3.Zero, (uint)(Constants.TeleportFlags.SetLastToTarget | Constants.TeleportFlags.ViaLandmark));
             }
-            else 
+            else
             {
                 // Foreign region
                 GatekeeperServiceConnector gConn = new GatekeeperServiceConnector();
@@ -583,7 +581,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 jobsRemoved, commonIdToRemove, jobsToReinsert.Count);
 
             if (jobsToReinsert.Count > 0)
-            {                                        
+            {
                 foreach (JobEngine.Job jobToReinsert in jobsToReinsert)
                     m_incomingSceneObjectEngine.QueueJob(jobToReinsert);
             }
@@ -613,16 +611,16 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                     if (aCircuit.ServiceURLs != null && aCircuit.ServiceURLs.ContainsKey("AssetServerURI"))
                     {
                         m_incomingSceneObjectEngine.QueueJob(
-                            string.Format("HG UUID Gather for attachment {0} for {1}", so.Name, aCircuit.Name), 
-                            () => 
+                            string.Format("HG UUID Gather for attachment {0} for {1}", so.Name, aCircuit.Name),
+                            () =>
                             {
                                 string url = aCircuit.ServiceURLs["AssetServerURI"].ToString();
     //                            m_log.DebugFormat(
-    //                                "[HG ENTITY TRANSFER MODULE]: Incoming attachment {0} for HG user {1} with asset service {2}", 
+    //                                "[HG ENTITY TRANSFER MODULE]: Incoming attachment {0} for HG user {1} with asset service {2}",
     //                                so.Name, so.AttachedAvatar, url);
 
                                 IDictionary<UUID, sbyte> ids = new Dictionary<UUID, sbyte>();
-                                HGUuidGatherer uuidGatherer 
+                                HGUuidGatherer uuidGatherer
                                     = new HGUuidGatherer(Scene.AssetService, url, ids);
                                 uuidGatherer.AddForInspection(so);
 
@@ -648,7 +646,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                                         RemoveIncomingSceneObjectJobs(so.OwnerID.ToString());
 
                                         return;
-                                    }                                                           
+                                    }
                                 }
 
     //                            m_log.DebugFormat(
@@ -659,7 +657,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                                 {
                                     int tickStart = Util.EnvironmentTickCount();
 
-                                    uuidGatherer.FetchAsset(kvp.Key);   
+                                    uuidGatherer.FetchAsset(kvp.Key);
 
                                     int ticksElapsed = Util.EnvironmentTickCountSubtract(tickStart);
 
@@ -672,15 +670,15 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                                         RemoveIncomingSceneObjectJobs(so.OwnerID.ToString());
 
                                         return;
-                                    }   
+                                    }
                                 }
 
                                 base.HandleIncomingSceneObject(so, newPosition);
 
     //                            m_log.DebugFormat(
-    //                                "[HG ENTITY TRANSFER MODULE]: Completed incoming attachment {0} for HG user {1} with asset server {2}", 
+    //                                "[HG ENTITY TRANSFER MODULE]: Completed incoming attachment {0} for HG user {1} with asset server {2}",
     //                                so.Name, so.OwnerID, url);
-                            },                             
+                            },
                             so.OwnerID.ToString());
                     }
                 }
@@ -700,7 +698,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
                 string url = aCircuit.ServiceURLs["HomeURI"].ToString();
                 IUserAgentService security = new UserAgentServiceConnector(url);
                 return security.VerifyClient(aCircuit.SessionID, token);
-            } 
+            }
             else
             {
                 m_log.DebugFormat(
@@ -748,7 +746,7 @@ namespace OpenSim.Region.CoreModules.Framework.EntityTransfer
             GridRegion region = new GridRegion();
 
             Uri uri = null;
-            if (!aCircuit.ServiceURLs.ContainsKey("HomeURI") || 
+            if (!aCircuit.ServiceURLs.ContainsKey("HomeURI") ||
                 (aCircuit.ServiceURLs.ContainsKey("HomeURI") && !Uri.TryCreate(aCircuit.ServiceURLs["HomeURI"].ToString(), UriKind.Absolute, out uri)))
                 return null;
 

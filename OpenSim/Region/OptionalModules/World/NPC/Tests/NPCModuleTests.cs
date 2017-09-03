@@ -112,7 +112,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC.Tests
             // ScenePresence.SendInitialData() to reset our entire appearance.
             m_scene.AssetService.Store(AssetHelpers.CreateNotecardAsset(originalFace8TextureId));
 
-            m_afMod.SetAppearance(sp, originalTe, null, null);
+            m_afMod.SetAppearance(sp, originalTe, null, new WearableCacheItem[0] );
 
             UUID npcId = m_npcMod.CreateNPC("John", "Smith", new Vector3(128, 128, 30), UUID.Zero, true, m_scene, sp.Appearance);
 
@@ -209,10 +209,10 @@ namespace OpenSim.Region.OptionalModules.World.NPC.Tests
             UserAccountHelpers.CreateUserWithInventory(m_scene, userId);
             ScenePresence sp = SceneHelpers.AddScenePresence(m_scene, userId);
 
-            InventoryItemBase att1Item 
+            InventoryItemBase att1Item
                 = UserInventoryHelpers.CreateInventoryItem(
                     m_scene, "att1", TestHelpers.ParseTail(0x2), TestHelpers.ParseTail(0x3), sp.UUID, InventoryType.Object);
-            InventoryItemBase att2Item 
+            InventoryItemBase att2Item
                 = UserInventoryHelpers.CreateInventoryItem(
                     m_scene, "att2", TestHelpers.ParseTail(0x12), TestHelpers.ParseTail(0x13), sp.UUID, InventoryType.Object);
 

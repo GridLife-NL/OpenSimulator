@@ -65,7 +65,7 @@ namespace OpenSim.Framework
 
                 if (m_pqueue.Count > 0)
                     return m_pqueue.Dequeue();
-                
+
                 if (m_queue.Count > 0)
                     return m_queue.Dequeue();
                 return default(T);
@@ -76,10 +76,10 @@ namespace OpenSim.Framework
         {
             lock (m_queueSync)
             {
-                bool success = true;
-                while (m_queue.Count < 1 && m_pqueue.Count < 1 && success)
+                if (m_queue.Count < 1 && m_pqueue.Count < 1)
                 {
-                    success = Monitor.Wait(m_queueSync, msTimeout);
+                    if(!Monitor.Wait(m_queueSync, msTimeout))
+                        return default(T);
                 }
 
                 if (m_pqueue.Count > 0)
